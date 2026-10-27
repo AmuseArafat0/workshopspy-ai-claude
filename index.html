@@ -871,7 +871,7 @@
       <li>The app cannot see whether a key has billing attached. That is why each provider asks you to confirm its free plan before Auto mode uses it.</li>
       <li>Some providers refuse browser requests (CORS). The app reports this as “blocked by the browser” instead of pretending.</li>
       <li>Scanned PDFs (images of text) cannot be read here — export the transcript as text instead.</li>
-      <li>The direct PDF download uses standard fonts: ₹ becomes “Rs.” and non-Latin scripts (e.g. Devanagari) cannot be drawn. Use <strong>Print / Save as PDF</strong> for full fidelity.</li>
+      <li>The direct PDF download embeds a Unicode font (loaded once from the CDN), so ₹ and accented text stay real text. Devanagari, emoji and other scripts are drawn as images so nothing turns into “?”. Offline, it still works but draws every special character as an image.</li>
       <li>Data lives in this browser only. Use <strong>Back up everything</strong> in the library to keep a copy or move to another device.</li>
       <li>The music is original generative jazz piano, synthesized live in your browser — no recordings are used.</li>
     </ul>
@@ -1789,43 +1789,43 @@ Hard rules:
 5. Clearly distinguish what was demonstrated live from what was only mentioned or claimed.`;
 
 const SECTIONS = [
-  { id: 'intro', title: 'Introduction', cats: ['INTRO', 'STRUCTURE', 'QUOTES'], maxOut: 6000, ask: `Write the INTRODUCTION section. Cover:
+  { id: 'intro', title: 'Opening', cats: ['INTRO', 'STRUCTURE', 'QUOTES'], maxOut: 6000, ask: `Write the INTRODUCTION section. Cover:
 ### Opening — what the presenter said and did first, the hook, and the promise of the session.
 ### Presenter & credibility — self-introduction, credentials, achievements, company, media or brand mentions.
 ### Trust-building moves — each move with evidence and timestamp.
 ### Audience engagement — chat prompts, polls, "type YES" asks, giveaways, attendance rules, and when they happened.
 ### Agenda & running order — the announced agenda, then the actual running order as a table: Time | Segment | Notes.
 ### Assessment — what worked and what was weak in the opening, each backed by evidence.` },
-  { id: 'teaching', title: 'Teaching', cats: ['TEACHING', 'STRUCTURE'], maxOut: 12000, ask: `Write the TEACHING section. For every topic, lesson or demonstration, in running order, add a subsection "### <Topic> [start time]" covering: what was taught, the step-by-step workflow if one was shown, examples used, prompts shared (verbatim, in fenced code blocks) and the practical outcome promised. Then add:
+  { id: 'teaching', title: 'Content Delivery', cats: ['TEACHING', 'STRUCTURE'], maxOut: 12000, ask: `Write the TEACHING section. For every topic, lesson or demonstration, in running order, add a subsection "### <Topic> [start time]" covering: what was taught, the step-by-step workflow if one was shown, examples used, prompts shared (verbatim, in fenced code blocks) and the practical outcome promised. Then add:
 ### Prompt library — every prompt shared, as a table: Time | Purpose | Prompt (shortened if very long). If none, say "No prompts were shared."
 ### Teaching quality — depth versus breadth, how much was hands-on versus talk, and gaps a learner would notice.` },
-  { id: 'tools', title: 'AI tools', cats: ['TOOLS', 'TEACHING'], maxOut: 8000, ask: `Write the AI TOOLS section.
+  { id: 'tools', title: 'Tools Covered', cats: ['TOOLS', 'TEACHING'], maxOut: 8000, ask: `Write the AI TOOLS section.
 ### Tools at a glance — a table with one row per tool: Tool | Category | What it was used for | Demonstrated live? (Yes / Mentioned only) | Free or paid (if stated) | Time.
 ### How each demonstrated tool was used — for each demonstrated tool: the exact workflow shown, inputs or prompts used, and the result shown.
 ### Mentioned but not demonstrated — tools only named, with context.
 ### Tool strategy — patterns: which tools anchor the workshop, which are used to justify buying the paid program, which are positioned as "secret" or advanced.` },
-  { id: 'marketing', title: 'Marketing', cats: ['MARKETING', 'INTRO', 'QUOTES'], maxOut: 7000, ask: `Write the MARKETING section.
+  { id: 'marketing', title: 'Persuasion', cats: ['MARKETING', 'INTRO', 'QUOTES'], maxOut: 7000, ask: `Write the MARKETING section.
 ### Storytelling — each story: who, the arc, its purpose, time.
 ### Testimonials & social proof — who, the claimed result, format (screenshot, video, live), time.
 ### Persuasion techniques — name each technique (e.g. authority, reciprocity, future pacing, pain agitation, identity, contrast, commitment) with quote evidence and time.
 ### Urgency & scarcity — deadlines, limited seats, timers, price-increase claims.
 ### Engagement strategies — how they kept attendees until the pitch.
 ### Claims to verify — bold income, job or result claims, quoted with time.` },
-  { id: 'selling', title: 'Selling', cats: ['SELLING', 'COURSE', 'QUOTES'], maxOut: 7000, ask: `Write the SELLING section.
+  { id: 'selling', title: 'Sales Pitch', cats: ['SELLING', 'COURSE', 'QUOTES'], maxOut: 7000, ask: `Write the SELLING section.
 ### Pitch timeline — when the pitch started, how they transitioned into it, and how long it lasted.
 ### Offer stack — a table: Element | Details | Time, covering program name, full price, discounted price, currency, discount deadline, EMI or payment options, bonuses (with stated value), guarantees or refund terms, coupon codes, links or QR codes, seat limits. Write "Not mentioned" for missing elements.
 ### Price anchoring & discount mechanics
 ### Objection handling — a table: Objection | How they answered | Time.
 ### Closing techniques & calls to action — each with quote and time.
 ### Follow-up mechanics — what happens after (calls, WhatsApp, counsellors), if stated.` },
-  { id: 'course', title: 'Course details', cats: ['COURSE', 'SELLING'], maxOut: 6000, ask: `Write the COURSE DETAILS section about the paid program.
+  { id: 'course', title: 'Program Details', cats: ['COURSE', 'SELLING'], maxOut: 6000, ask: `Write the COURSE DETAILS section about the paid program.
 ### Program overview — name, format, duration, start date, schedule, live versus recorded.
 ### What's included — a table: Component | Details | Time (modules, sessions, recordings, projects, certificates, community, mentorship, tool access, job or placement support, lifetime access, etc.).
 ### Bonuses
 ### Eligibility & who it's for
 ### Support & guarantees
 ### Not stated — important buyer questions the transcript does not answer (e.g. refund policy, who teaches the live sessions, batch size).` },
-  { id: 'summary', title: 'Summary', fromSections: true, maxOut: 6000, ask: `Write the SUMMARY section of this competitor-workshop report, using only the REPORT SECTIONS provided.
+  { id: 'summary', title: 'Executive Summary', fromSections: true, maxOut: 6000, ask: `Write the SUMMARY section of this competitor-workshop report, using only the REPORT SECTIONS provided.
 ### Key takeaways — 6 to 10 bullets, most important first.
 ### Strengths — with evidence and timestamps.
 ### Weaknesses — with evidence and timestamps.
@@ -2404,58 +2404,342 @@ function reportJSON(rec) {
   SECTIONS.forEach((s) => { sections[s.id] = { title: s.title, markdown: (rec.report && rec.report.sections[s.id] && rec.report.sections[s.id].md) || null, model: rec.report && rec.report.sections[s.id] ? rec.report.sections[s.id].model : null }; });
   return JSON.stringify({ app: APP.name, version: APP.version, exportedAt: new Date().toISOString(), workshop: { id: rec.id, title: rec.title, competitor: rec.competitor, date: rec.date, status: rec.status, source: rec.source, duration: rec.duration }, models: rec.models, sections, facts: rec.facts || null, segments: (rec.chunks || []).map((c, i) => ({ index: i + 1, range: c.range, model: c.model, notes: c.notes })) }, null, 2);
 }
-function pdfSafe(s) {
-  return String(s || '').replace(/₹\s?/g, 'Rs. ').replace(/[“”«»„]/g, '"').replace(/[‘’‚]/g, "'").replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[•●▪]/g, '-').replace(/\u00a0/g, ' ').replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u00FF]+/g, '[?]');
+/* ---------------- PDF export: organised layout + full character support ----------------
+   - Noto Sans (regular + bold) is embedded, so ₹ € £ accented Latin, Greek, Cyrillic, curly quotes etc. stay real, selectable text.
+   - Any line that still has characters the font lacks (Devanagari, emoji, CJK, arrows, math) is drawn through the browser's own
+     text engine and placed as an image, so nothing turns into "?" or boxes.
+   - If the font files cannot be fetched (offline / blocked CDN) the export still works: it falls back to Helvetica + image lines. */
+const PDF_SUMMARY_FIRST = true; // true = Summary comes right after the cover; false = same order as the on-screen report
+const PDF_FONT_BASE = 'https://cdn.jsdelivr.net/gh/notofonts/notofonts.github.io@main/fonts/NotoSans/hinted/ttf/';
+const PDF_FONT_FILES = { regular: 'NotoSans-Regular.ttf', bold: 'NotoSans-Bold.ttf' };
+const PDF_NOTO_OK = /^[\n\x20-\x7E\u00A0-\u024F\u0370-\u03FF\u0400-\u04FF\u1E00-\u1EFF\u2010-\u2027\u2030-\u203A\u20AC\u20B9\u2122\u2212]*$/;
+const PDF_LATIN1_OK = /^[\n\x20-\x7E\u00A1-\u00FF]*$/;
+let _pdfFontData = null;
+function pdfBufToB64(buf) {
+  const u8 = new Uint8Array(buf); let bin = '';
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
+async function loadPdfFonts() {
+  if (_pdfFontData) return _pdfFontData;
+  try {
+    const out = {};
+    await Promise.all(Object.entries(PDF_FONT_FILES).map(async ([k, f]) => {
+      const r = await fetch(PDF_FONT_BASE + f);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      out[k] = pdfBufToB64(await r.arrayBuffer());
+    }));
+    _pdfFontData = out; return out;
+  } catch (e) { return null; }
+}
+function pdfNorm(s) {
+  return String(s == null ? '' : s).replace(/[\u200B-\u200D\u2060\uFEFF\uFE0E\uFE0F]/g, '').replace(/\u00a0/g, ' ').replace(/\t/g, '    ').replace(/\r\n?/g, '\n');
+}
+function pdfAscii(s) {
+  return s.replace(/[“”«»„]/g, '"').replace(/[‘’‚]/g, "'").replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[•●▪◦]/g, '*');
+}
+
 async function exportPdf(rec) {
   await loadScript(LIBS.jspdf);
   const lib = window.jspdf;
   if (!lib || !lib.jsPDF) throw new Error('The PDF library did not load.');
-  const doc = new lib.jsPDF({ unit: 'pt', format: 'a4' });
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 50, CW = W - M * 2;
-  let y = M;
-  const clean = (s) => pdfSafe(mdPlain(s));
-  const write = (text, o = {}) => {
-    const size = o.size || 10.5, lh = o.lh || 1.42, indent = o.indent || 0;
-    doc.setFont(o.font || 'helvetica', o.style || 'normal'); doc.setFontSize(size); doc.setTextColor(...(o.color || [28, 28, 40]));
-    const lines = doc.splitTextToSize(text || ' ', CW - indent - (o.hang || 0));
-    lines.forEach((ln, i) => {
-      if (y + size * lh > H - M) { doc.addPage(); y = M; }
-      doc.text(ln, M + indent + (i && o.hang ? o.hang : 0), y + size);
-      y += size * lh;
+  const fonts = await loadPdfFonts();
+  const doc = new lib.jsPDF({ unit: 'pt', format: 'a4', compress: true });
+  if (fonts) {
+    doc.addFileToVFS('NotoSans-Regular.ttf', fonts.regular); doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.addFileToVFS('NotoSans-Bold.ttf', fonts.bold); doc.addFont('NotoSans-Bold.ttf', 'NotoSans', 'bold');
+  }
+  const SANS = fonts ? 'NotoSans' : 'helvetica';
+  const okRe = fonts ? PDF_NOTO_OK : PDF_LATIN1_OK;
+  const title = rec.title || 'Workshop report';
+  doc.setProperties({ title, subject: 'Competitor workshop analysis', creator: 'WorkshopSpy AI' });
+
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 48, TOP = 58, BOT = H - 48, CW = W - M * 2;
+  const C = { ink: [28, 28, 40], mute: [96, 96, 116], faint: [150, 150, 166], brand: [42, 24, 84], brand2: [104, 66, 176], accent: [176, 106, 0], line: [214, 208, 230], tint: [244, 241, 251], zebra: [249, 247, 253], codeBg: [245, 243, 250], white: [255, 255, 255] };
+  let y = TOP, rasterLines = 0;
+
+  /* ---- text layout: vector when the font can draw it, image otherwise ---- */
+  const S = 3;
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d');
+  const FAM = '"Noto Sans","Segoe UI","Nirmala UI",Mangal,"Noto Sans Devanagari","Apple Color Emoji","Segoe UI Emoji",Arial,sans-serif';
+  const MONO_FAM = 'Consolas,"Courier New","Noto Sans Mono",monospace';
+  const cxFont = (L) => `${L.bold ? 'bold ' : ''}${L.size * S}px ${L.mono ? MONO_FAM : FAM}`;
+  function lay(text, width, o = {}) {
+    const size = o.size || 10, lh = o.lh || 1.45;
+    const L = { size, lineH: size * lh, bold: !!o.bold, mono: !!o.mono, width, lines: [], raster: false };
+    let t = pdfNorm(text);
+    if (!fonts || L.mono) t = pdfAscii(t);
+    L.raster = !((L.mono ? PDF_LATIN1_OK : okRe).test(t));
+    if (!L.raster) {
+      doc.setFont(L.mono ? 'courier' : SANS, L.bold ? 'bold' : 'normal'); doc.setFontSize(size);
+      L.lines = doc.splitTextToSize(t || ' ', width);
+    } else {
+      cx.font = cxFont(L);
+      const meas = (s) => cx.measureText(s).width / S;
+      for (const para of t.split('\n')) {
+        let cur = '';
+        for (const tok of para.split(' ')) {
+          const test = cur ? cur + ' ' + tok : tok;
+          if (meas(test) <= width) { cur = test; continue; }
+          if (cur) L.lines.push(cur);
+          cur = tok;
+          while (meas(cur) > width) {
+            const ch = Array.from(cur); let n = ch.length - 1;
+            while (n > 1 && meas(ch.slice(0, n).join('')) > width) n--;
+            L.lines.push(ch.slice(0, n).join('')); cur = ch.slice(n).join('');
+          }
+        }
+        L.lines.push(cur || ' ');
+      }
+    }
+    if (!L.lines.length) L.lines = [' '];
+    return L;
+  }
+  function put(L, ln, x, top, color) {
+    const base = top + L.lineH / 2 + L.size * 0.34;
+    if (!L.raster) {
+      doc.setFont(L.mono ? 'courier' : SANS, L.bold ? 'bold' : 'normal'); doc.setFontSize(L.size); doc.setTextColor(...color);
+      doc.text(ln, x, base); return;
+    }
+    cx.font = cxFont(L);
+    const w = Math.min(L.width, cx.measureText(ln).width / S + 3);
+    cv.width = Math.max(2, Math.ceil(w * S)); cv.height = Math.max(2, Math.ceil(L.lineH * S));
+    cx.font = cxFont(L); cx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`; cx.textBaseline = 'alphabetic';
+    cx.fillText(ln, 0, (L.lineH / 2 + L.size * 0.34) * S);
+    doc.addImage(cv.toDataURL('image/png'), 'PNG', x, top, cv.width / S, cv.height / S, undefined, 'FAST');
+    rasterLines++;
+  }
+
+  /* ---- page + block helpers ---- */
+  const newPage = () => { doc.addPage(); y = TOP; };
+  const room = (h) => { if (y + h > BOT) newPage(); };
+  function para(text, o = {}) {
+    const ind = o.indent || 0, L = lay(text, CW - ind, o);
+    for (const ln of L.lines) { if (y + L.lineH > BOT) newPage(); put(L, ln, M + ind, y, o.color || C.ink); y += L.lineH; }
+    y += o.gap ?? 5;
+  }
+  function h3(text) {
+    const L = lay(text, CW - 12, { size: 12.5, bold: true, lh: 1.35 });
+    room(L.lines.length * L.lineH + 46); y += 8;
+    doc.setFillColor(...C.accent); doc.rect(M, y + 2, 3, L.lines.length * L.lineH - 4, 'F');
+    for (const ln of L.lines) { put(L, ln, M + 11, y, C.brand); y += L.lineH; }
+    y += 4;
+  }
+  function h4(text) {
+    const L = lay(text, CW, { size: 10.5, bold: true, lh: 1.4 });
+    room(L.lines.length * L.lineH + 34); y += 4;
+    for (const ln of L.lines) { put(L, ln, M, y, C.brand2); y += L.lineH; }
+    y += 2;
+  }
+  function li(text, lvl, marker) {
+    const ind = 6 + Math.min(3, lvl) * 14, hang = 13, L = lay(text, CW - ind - hang, { size: 10, lh: 1.42 });
+    L.lines.forEach((ln, i) => {
+      if (y + L.lineH > BOT) newPage();
+      if (i === 0) {
+        if (marker) { doc.setFont(SANS, 'bold'); doc.setFontSize(9.5); doc.setTextColor(...C.brand2); doc.text(marker, M + ind, y + L.lineH / 2 + 3.3); }
+        else { doc.setFillColor(...C.brand2); doc.circle(M + ind + 3, y + L.lineH / 2, 1.7, 'F'); }
+      }
+      put(L, ln, M + ind + hang, y, C.ink); y += L.lineH;
     });
-    y += o.gap ?? 4;
-  };
-  write(clean(rec.title || 'Workshop report'), { size: 20, style: 'bold', color: [42, 24, 84], gap: 6 });
-  write(clean(metaLine(rec)), { size: 9.5, color: [90, 90, 110] });
-  write(clean('Generated by: ' + modelsLine(rec.models)), { size: 9.5, color: [90, 90, 110], gap: 10 });
-  for (const s of SECTIONS) {
-    const md = (rec.report && rec.report.sections[s.id] && rec.report.sections[s.id].md) || 'Not generated.';
-    if (y > H - M - 80) { doc.addPage(); y = M; }
-    y += 10;
-    write(s.title, { size: 16, style: 'bold', color: [96, 58, 0], gap: 2 });
-    doc.setDrawColor(210, 200, 230); doc.line(M, y, W - M, y); y += 10;
-    let inCode = false;
-    for (const raw of md.split('\n')) {
-      if (/^\s*```/.test(raw)) { inCode = !inCode; continue; }
-      if (inCode) { write(pdfSafe(raw) || ' ', { font: 'courier', size: 8.8, indent: 10, gap: 0, color: [60, 60, 70] }); continue; }
-      if (!raw.trim()) { y += 4; continue; }
-      if (mdIsSep(raw)) continue;
-      let m = raw.match(/^\s*#{1,6}\s+(.*)$/);
-      if (m) { y += 4; write(clean(m[1]), { size: 12, style: 'bold', color: [62, 40, 112], gap: 3 }); continue; }
-      if (/^\s*\|/.test(raw)) { write(mdSplitRow(raw).map(clean).filter(Boolean).join('   |   '), { size: 9.2, indent: 6, gap: 2 }); continue; }
-      m = raw.match(MD_LIST);
-      if (m) { const lvl = Math.min(3, Math.floor(m[1].length / 2)); const mark = /\d/.test(m[2]) ? m[2] : '-'; write(`${mark}  ${clean(m[3])}`, { indent: 6 + lvl * 14, hang: 12, gap: 2 }); continue; }
-      if (/^\s*>/.test(raw)) { write(clean(raw.replace(/^\s*>\s?/, '')), { style: 'italic', indent: 14, color: [80, 80, 96], gap: 2 }); continue; }
-      write(clean(raw), { gap: 3 });
+    y += 2.5;
+  }
+  function quote(text) {
+    const L = lay(text, CW - 16, { size: 10, lh: 1.42 });
+    for (const ln of L.lines) {
+      if (y + L.lineH > BOT) newPage();
+      doc.setFillColor(...C.line); doc.rect(M + 2, y, 2.5, L.lineH, 'F');
+      put(L, ln, M + 14, y, C.mute); y += L.lineH;
+    }
+    y += 5;
+  }
+  function code(buf) {
+    const L = lay(buf.join('\n') || ' ', CW - 18, { size: 8.4, lh: 1.38, mono: true });
+    y += 3;
+    L.lines.forEach((ln, i) => {
+      if (y + L.lineH > BOT) newPage();
+      doc.setFillColor(...C.codeBg); doc.rect(M, y, CW, L.lineH + (i === L.lines.length - 1 ? 4 : 0), 'F');
+      doc.setFillColor(...C.accent); doc.rect(M, y, 2.5, L.lineH + (i === L.lines.length - 1 ? 4 : 0), 'F');
+      put(L, ln, M + 11, y, [58, 58, 74]); y += L.lineH;
+    });
+    y += 9;
+  }
+  function table(head, rows) {
+    const n = head.length; if (!n) return;
+    const pad = 4, size = 8.8, lhm = 1.4, lineH = size * lhm;
+    const stat = head.map((h, k) => {
+      const lens = [h, ...rows.map((r) => r[k] || '')].map((s) => mdPlain(String(s)).length);
+      return Math.max(6, Math.min(70, 0.5 * Math.max(...lens) + 0.5 * (lens.reduce((a, b) => a + b, 0) / lens.length)));
+    });
+    const minW = Math.min(46, CW / n), tot = stat.reduce((a, b) => a + b, 0);
+    let w = stat.map((s) => Math.max(minW, (CW * s) / tot)); const sw = w.reduce((a, b) => a + b, 0); w = w.map((v) => (v * CW) / sw);
+    const cell = (s, k, bold) => lay(mdPlain(String(s ?? '')), w[k] - pad * 2, { size, lh: lhm, bold });
+    const segment = (CL, from, count, kind) => {
+      const h = count * lineH + pad * 2;
+      doc.setFillColor(...(kind === 'head' ? C.brand : kind === 'zebra' ? C.zebra : C.white)); doc.rect(M, y, CW, h, 'F');
+      doc.setDrawColor(...C.line); doc.setLineWidth(0.5); doc.line(M, y + h, M + CW, y + h);
+      let x = M;
+      CL.forEach((L, k) => {
+        L.lines.slice(from, from + count).forEach((ln, i) => put(L, ln, x + pad, y + pad + i * lineH, kind === 'head' ? C.white : C.ink));
+        x += w[k]; if (kind !== 'head' && k < n - 1) doc.line(x, y, x, y + h);
+      });
+      y += h;
+    };
+    const HL = head.map((h, k) => cell(mdPlain(h), k, true));
+    const hCount = Math.max(...HL.map((l) => l.lines.length));
+    const drawHead = () => { if (y + hCount * lineH + pad * 2 > BOT) newPage(); segment(HL, 0, hCount, 'head'); };
+    room(hCount * lineH + pad * 2 + lineH * 2 + pad * 2 + 6); y += 3; drawHead();
+    rows.forEach((r, ri) => {
+      const CL = head.map((_, k) => cell(r[k], k, k === 0));
+      const total = Math.max(...CL.map((l) => l.lines.length));
+      let done = 0;
+      while (done < total) {
+        let avail = Math.floor((BOT - y - pad * 2) / lineH);
+        if (avail < 1 || (done === 0 && avail < Math.min(total, 2))) { newPage(); drawHead(); avail = Math.floor((BOT - y - pad * 2) / lineH); }
+        const take = Math.min(total - done, avail);
+        segment(CL, done, take, ri % 2 ? 'zebra' : 'plain'); done += take;
+      }
+    });
+    y += 9;
+  }
+  function renderMd(src) {
+    const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
+    const startsBlock = (l, next) => /^\s*(#{1,6}\s|```|~~~|>)/.test(l) || MD_LIST.test(l) || (l.includes('|') && mdIsSep(next)) || /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l);
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) { i++; continue; }
+      let m = line.match(/^\s*(```|~~~)\s*[\w+-]*\s*$/);
+      if (m) { const fence = m[1], buf = []; i++; while (i < lines.length && !lines[i].trim().startsWith(fence)) { buf.push(lines[i]); i++; } i++; code(buf); continue; }
+      m = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
+      if (m) { const t = mdPlain(m[2].replace(/\*\*/g, '')); if (m[1].length <= 3) h3(t); else h4(t); i++; continue; }
+      if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { y += 4; doc.setDrawColor(...C.line); doc.setLineWidth(0.6); doc.line(M, y, M + CW, y); y += 8; i++; continue; }
+      if (/^\s*>/.test(line)) { const buf = []; while (i < lines.length && /^\s*>/.test(lines[i])) { buf.push(lines[i].replace(/^\s*>\s?/, '')); i++; } quote(mdPlain(buf.join('\n'))); continue; }
+      if (line.includes('|') && mdIsSep(lines[i + 1])) {
+        const head = mdSplitRow(line); i += 2; const rows = [];
+        while (i < lines.length && lines[i].includes('|') && lines[i].trim()) { rows.push(mdSplitRow(lines[i])); i++; }
+        table(head, rows); continue;
+      }
+      if (MD_LIST.test(line)) {
+        const items = [];
+        while (i < lines.length) {
+          const l = lines[i], mm = l.match(MD_LIST);
+          if (mm) { items.push({ indent: mm[1].replace(/\t/g, '    ').length, mark: /\d/.test(mm[2]) ? mm[2] : '', text: mm[3] }); i++; continue; }
+          if (items.length && l.trim() && /^\s{2,}\S/.test(l) && !startsBlock(l, lines[i + 1])) { items[items.length - 1].text += ' ' + l.trim(); i++; continue; }
+          break;
+        }
+        const base = Math.min(...items.map((it) => it.indent));
+        items.forEach((it) => li(mdPlain(it.text), Math.floor((it.indent - base) / 2), it.mark)); y += 3; continue;
+      }
+      const buf = [line.trim()]; i++;
+      while (i < lines.length && lines[i].trim() && !startsBlock(lines[i], lines[i + 1])) { buf.push(lines[i].trim()); i++; }
+      para(mdPlain(buf.join('\n')), { gap: 6 });
     }
   }
+
+  /* ---- cover page ---- */
+  const TL = lay(title, CW, { size: 22, bold: true, lh: 1.25 });
+  const bandH = 64 + TL.lines.length * TL.lineH + 26;
+  doc.setFillColor(...C.brand); doc.rect(0, 0, W, bandH, 'F');
+  doc.setFillColor(...C.accent); doc.rect(0, bandH, W, 4, 'F');
+  doc.setFont(SANS, 'bold'); doc.setFontSize(8.5); doc.setTextColor(206, 188, 255);
+  doc.text('WORKSHOPSPY AI  |  COMPETITOR WORKSHOP REPORT', M, 40);
+  let ty = 56; for (const ln of TL.lines) { put(TL, ln, M, ty, C.white); ty += TL.lineH; }
+  y = bandH + 24;
+  const meta = [rec.competitor && `Competitor: ${rec.competitor}`, rec.date && `Date: ${fmtDate(rec.date)}`, rec.duration && `Length: ${fmtDuration(rec.duration)}`, rec.source && `Transcript: ${fmtNum(rec.source.words)} words`].filter(Boolean);
+  if (meta.length) para(meta.join('   |   '), { size: 9.5, color: C.mute, gap: 3 });
+  para('Generated by: ' + modelsLine(rec.models), { size: 8.8, color: C.faint, gap: 10 });
+  if (rec.status !== 'complete') {
+    const L = lay('This report is incomplete - some segments or sections were not generated.', CW - 20, { size: 9.5, bold: true });
+    doc.setFillColor(253, 243, 222); doc.rect(M, y, CW, L.lineH + 12, 'F'); doc.setFillColor(...C.accent); doc.rect(M, y, 3, L.lineH + 12, 'F');
+    put(L, L.lines[0], M + 14, y + 6, [120, 70, 0]); y += L.lineH + 24;
+  }
+
+  const f = rec.facts || {};
+  const nm = (x) => (typeof x === 'string' ? x : (x && (x.name || x.tool || x.title || x.item)) || '');
+  const kv = [];
+  if (f.presenter) kv.push(['Presenter', f.presenter]);
+  if (f.organization) kv.push(['Organisation', f.organization]);
+  if (f.program_name) kv.push(['Program sold', f.program_name]);
+  const tools = (f.tools || []).map(nm).filter(Boolean);
+  if (tools.length) kv.push([`AI tools (${tools.length})`, tools.slice(0, 14).join(', ') + (tools.length > 14 ? `, +${tools.length - 14} more` : '')]);
+  const pr = (f.pricing || [])[0];
+  if (pr) { const ps = typeof pr === 'string' ? pr : [pr.item, pr.amount].filter(Boolean).join(': '); if (ps) kv.push(['Price', ps]); }
+  if ((f.bonuses || []).length) kv.push(['Bonuses', `${f.bonuses.length} listed`]);
+  if ((f.guarantees || []).length) kv.push(['Guarantee', f.guarantees[0]]);
+  if (kv.length) {
+    const rows = kv.map(([k, v]) => ({ k, L: lay(mdPlain(String(v)), CW - 24 - 96, { size: 9.5, lh: 1.4 }) }));
+    const cardH = 20 + rows.reduce((a, r) => a + r.L.lines.length * r.L.lineH + 4, 0) + 8;
+    doc.setFillColor(...C.tint); doc.rect(M, y, CW, cardH, 'F'); doc.setFillColor(...C.brand2); doc.rect(M, y, 3, cardH, 'F');
+    doc.setFont(SANS, 'bold'); doc.setFontSize(8.5); doc.setTextColor(...C.brand2); doc.text('AT A GLANCE', M + 14, y + 15);
+    let ry = y + 24;
+    rows.forEach((r) => {
+      doc.setFont(SANS, 'bold'); doc.setFontSize(9); doc.setTextColor(...C.mute); doc.text(r.k, M + 14, ry + r.L.lineH / 2 + 3.2);
+      r.L.lines.forEach((ln) => { put(r.L, ln, M + 14 + 96, ry, C.ink); ry += r.L.lineH; }); ry += 4;
+    });
+    y += cardH + 18;
+  }
+
+  /* ---- contents (page numbers filled in once sections are placed) ---- */
+  const secs = (rec.report && rec.report.sections) || {};
+  const order = PDF_SUMMARY_FIRST ? [...SECTIONS.filter((s) => s.id === 'summary'), ...SECTIONS.filter((s) => s.id !== 'summary')] : SECTIONS.slice();
+  doc.setFont(SANS, 'bold'); doc.setFontSize(12.5); doc.setTextColor(...C.brand); doc.text('Contents', M, y + 10); y += 22;
+  doc.setDrawColor(...C.line); doc.setLineWidth(0.8); doc.line(M, y - 6, M + CW, y - 6);
+  const toc = order.map((s, i) => {
+    const has = !!(secs[s.id] && secs[s.id].md);
+    const row = { s, i, has, y, h: 21 };
+    y += row.h; return row;
+  });
+  const tocPages = {};
+
+  /* ---- sections ---- */
+  newPage();
+  order.forEach((s, idx) => {
+    const md = secs[s.id] && secs[s.id].md;
+    if (idx > 0 && y > BOT - 150) newPage();
+    else if (idx > 0) y += 16;
+    tocPages[s.id] = doc.internal.getCurrentPageInfo().pageNumber;
+    doc.setFillColor(...C.brand); doc.rect(M, y, CW, 30, 'F'); doc.setFillColor(...C.accent); doc.rect(M, y, 5, 30, 'F');
+    doc.setFont(SANS, 'bold'); doc.setFontSize(9.5); doc.setTextColor(206, 188, 255); doc.text(String(idx + 1).padStart(2, '0'), M + 16, y + 19);
+    doc.setFontSize(14); doc.setTextColor(...C.white); doc.text(s.title, M + 40, y + 20);
+    y += 30 + 12;
+    if (!md) para('Not generated.', { color: C.faint });
+    else renderMd(md);
+  });
+
+  /* ---- contents page numbers + links ---- */
+  doc.setPage(1);
+  toc.forEach((r) => {
+    const pg = tocPages[r.s.id];
+    const num = String(r.i + 1).padStart(2, '0');
+    doc.setFont(SANS, 'bold'); doc.setFontSize(9.5); doc.setTextColor(...C.brand2); doc.text(num, M + 4, r.y + 13);
+    doc.setFont(SANS, 'normal'); doc.setFontSize(10.5); doc.setTextColor(...(r.has ? C.ink : C.faint));
+    const label = r.s.title + (r.has ? '' : '  (not generated)');
+    doc.text(label, M + 28, r.y + 13);
+    const x1 = M + 28 + doc.getTextWidth(label) + 6, x2 = M + CW - 26;
+    if (x2 > x1) { doc.setDrawColor(...C.line); doc.setLineWidth(0.8); doc.setLineDashPattern([1, 2.5], 0); doc.line(x1, r.y + 12, x2, r.y + 12); doc.setLineDashPattern([], 0); }
+    doc.setFont(SANS, 'bold'); doc.setTextColor(...C.ink); doc.text(String(pg), M + CW, r.y + 13, { align: 'right' });
+    doc.link(M, r.y, CW, r.h, { pageNumber: pg });
+  });
+
+  /* ---- running header + footer ---- */
+  const safeHdr = (s) => Array.from(pdfAscii(pdfNorm(s))).filter((ch) => okRe.test(ch)).join('').trim();
   const pages = doc.getNumberOfPages();
   for (let p = 1; p <= pages; p++) {
-    doc.setPage(p); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(140, 140, 150);
-    doc.text(pdfSafe(`WorkshopSpy AI  -  ${rec.title || 'Workshop report'}  -  page ${p} of ${pages}`), M, H - 24);
+    doc.setPage(p);
+    if (p > 1) {
+      doc.setFont(SANS, 'normal'); doc.setFontSize(8); doc.setTextColor(...C.faint);
+      doc.text(safeHdr(title).slice(0, 90), M, 30);
+      doc.setDrawColor(...C.line); doc.setLineWidth(0.6); doc.line(M, 37, W - M, 37);
+    }
+    doc.setDrawColor(...C.line); doc.setLineWidth(0.6); doc.line(M, H - 36, W - M, H - 36);
+    doc.setFont(SANS, 'normal'); doc.setFontSize(8); doc.setTextColor(...C.faint);
+    doc.text('WorkshopSpy AI - competitor workshop report', M, H - 24);
+    doc.text(`Page ${p} of ${pages}`, W - M, H - 24, { align: 'right' });
   }
-  doc.save(`${slug(rec.title)}-report.pdf`);
+  doc.save(`${slug(title)}-report.pdf`);
+  if (!fonts) toast('Unicode fonts could not be loaded (offline or blocked CDN), so special characters were drawn as images instead.', 'info', { ms: 6000 });
+  else if (rasterLines) toast(`Done. ${rasterLines} line${rasterLines === 1 ? '' : 's'} with non-Latin text or emoji were drawn as images so nothing is lost.`, 'info', { ms: 5000 });
 }
 function csvCell(v) { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
 function comparisonCSV(cmp) {
@@ -2784,7 +3068,7 @@ function renderReport() {
         <button type="button" class="btn btn-sm" data-action="copy-all">${ICON('copy')}Copy report</button>
         <details class="menu"><summary class="btn btn-sm">${ICON('download')}Download</summary>
           <div class="menu-pop">
-            <button type="button" data-action="dl-pdf">PDF<small>Direct download — standard fonts, ₹ shown as Rs.</small></button>
+            <button type="button" data-action="dl-pdf">PDF<small>Organised layout with contents page — ₹, accents and other scripts supported</small></button>
             <button type="button" data-action="print">Print or save as PDF<small>Full Unicode via your browser</small></button>
             <button type="button" data-action="dl-md">Markdown (.md)</button>
             <button type="button" data-action="dl-txt">Plain text (.txt)</button>
