@@ -822,6 +822,11 @@
       <div class="panel">
         <h2 class="panel-title">Providers</h2>
         <p class="panel-sub">Nothing is sent to a provider until you tick “Allow transcripts”. Test connection sends a one-line message only.</p>
+        <div class="field mt-4" id="builtinBox">
+          <label for="builtinPass">Built-in API keys</label>
+          <p class="hint" id="builtinNote" style="margin:2px 0 8px">Locked. Enter the access password to use the built-in keys. If you add your own key below, you do not need the password.</p>
+          <div class="key-row"><input type="password" id="builtinPass" autocomplete="off" placeholder="Access password"><button type="button" class="btn btn-sm" id="builtinUnlock">Unlock</button></div>
+        </div>
         <div id="providerList" class="mt-4"></div>
       </div>
     </div>
@@ -1403,7 +1408,31 @@ function geminiQ(id) {
 }
 
 /* ---------------- settings, keys, health ---------------- */
-let KEYS = {};
+/* Built-in keys are stored ENCRYPTED (AES-GCM, key derived from the access password with PBKDF2). They only become usable
+   after the password is entered. Keys a person types themselves (KEYS) work without any password. A second key per provider
+   is stored as KEYS['<provider>#2']; if the first fails or hits its limit the app switches to the next one automatically. */
+const BUILTIN_ENC = {"salt": "LplCpgH7eOjsy72X3tX2Hw==", "iv": "fXffa1OrhUbi5hhB", "ct": "ZhhB294Qc5Q6YgjJsLNCvsNK1hTUJJrF8xjdorMFkSx8BUIER6GUGzoXaYlVlGD7k/VK1ceBMW70tQNF2UmNIoYV24zAOqxuzU8OhFHmf6jMe+Oj9Dr90CNIbg4wRITSxDsGObIWoJfk3ISr4TcFKChf7IxvYF9HI9IiVNLZCXretIU03DtSHM+9KqYJ5n85i2vrU/ueQyTkUNFwJX/RWv6xqRy8Q9AOcZdHIg6UAfzOHd0U12dKZ9nltj6waO5vjE6mNdb7i8AxHTnvp4BzVPs7FHvpANxiRKPMLoUA2Grng2SME6jryRH+TnsQssEaF1UE3TXPnlqEU6juXudiUkMHXfYGx5oxJEFM/i1jFQtOpfaRcB/agD9Td5BToXlg16q9Z00kH2VpnhuX+uqKm7KKFCYzZuAeJzgSrlTyOqejQVUAQU3PcIQND92P6+Ops8yYXKSRfljsM6MBihzqPHbOlZMhNfn8bCggg0DRVCnd2iz74/XfWVTSRUbPLcDliQ=="};
+const BUILTIN_PIDS = ['gemini', 'openrouter', 'groq', 'mistral', 'cohere', 'huggingface'];
+let KEYS = {};                      // keys typed by the person (manual) — no password needed
+let BUILT = {};                     // built-in keys, filled only after a correct password; memory only, never saved
+const TOUCHED = new Set();
+const KEYCOOL = {};                 // 'pid|key' -> timestamp until which that key is skipped
+function keySlots(pid) {
+  const seen = new Set();
+  return [BUILT[pid], KEYS[pid], KEYS[pid + '#2']].map((k) => (k || '').trim()).filter((k) => k && !seen.has(k) && seen.add(k)).map((k) => ({ k }));
+}
+const firstKey = (pid) => { const s = keySlots(pid); return s.length ? s[0].k : ''; };
+const hasKey = (pid) => keySlots(pid).length > 0;
+async function unlockBuiltin(pw) {
+  if (!(window.crypto && crypto.subtle)) throw new Error('Unlocking needs a secure (https or localhost) page.');
+  const u = (x) => Uint8Array.from(atob(x), (c) => c.charCodeAt(0));
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const k = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: u(BUILTIN_ENC.salt), iterations: 250000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  let pt; try { pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u(BUILTIN_ENC.iv) }, k, u(BUILTIN_ENC.ct)); } catch (e) { throw new Error('Wrong password.'); }
+  BUILT = JSON.parse(new TextDecoder().decode(pt));
+  for (const pid of BUILTIN_PIDS) { const ps = S.providers[pid]; if (ps && !ps.seeded) { ps.approved = true; if (PROVIDERS[pid].freeLabel) ps.freeOk = true; ps.seeded = true; } }
+  saveSettings();
+}
 const S = {
   mode: 'auto', manualModel: '', manualFallback: true, depth: 'thorough', myContext: '', timeoutSec: 240, maxWaitSec: 70,
   keystore: 'memory', disabled: [], consent: {}, music: { vol: 45 }, lastCompetitor: '',
@@ -1479,7 +1508,7 @@ function findModel(key) { return allModels().find((m) => m.key === key) || null;
 function modelStatus(m) {
   const P = PROVIDERS[m.provider], ps = S.providers[m.provider];
   const no = (reason, extra = {}) => Object.assign({ usable: false, auto: false, reason }, extra);
-  if (P.needsKey && !KEYS[m.provider]) return no('Add an API key');
+  if (P.needsKey && !hasKey(m.provider)) return no(BUILTIN_PIDS.includes(m.provider) ? 'Add an API key or unlock the built-in keys' : 'Add an API key');
   if (m.provider === 'custom' && !ps.base) return no('Add the endpoint URL');
   if (!ps.approved) return no('Tick “Allow transcripts” for this provider');
   if (P.freeLabel && !ps.freeOk) return no('Tick the free-plan confirmation');
@@ -1609,8 +1638,26 @@ async function postJSON(url, headers, body, signal) {
   if (!data) throw new LLMError('transient', 'The provider returned a non-JSON response.');
   return data;
 }
-async function rawCall(m, messages, { maxOut = 4096, temperature = 0.2, json = false, signal, dropExtra = false } = {}) {
-  const pid = m.provider, P = PROVIDERS[pid], base = providerBase(pid), key = KEYS[pid] || '';
+async function rawCall(m, messages, opts = {}) {
+  const pid = m.provider, slots = PROVIDERS[pid].needsKey ? keySlots(pid) : [];
+  if (slots.length < 2) return rawCallOnce(m, messages, opts, (slots[0] && slots[0].k) || '');
+  const now = Date.now(), cool = (x) => KEYCOOL[pid + '|' + x.k] || 0;
+  const order = slots.filter((x) => cool(x) <= now).concat(slots.filter((x) => cool(x) > now));
+  let lastErr;
+  for (const x of order) {
+    try { return await rawCallOnce(m, messages, opts, x.k); }
+    catch (e) {
+      if (isAbort(e)) throw e;
+      const err = normalizeErr(e); lastErr = err;
+      if (err.type === 'auth' || err.type === 'credits') KEYCOOL[pid + '|' + x.k] = Date.now() + 3600e3;
+      else if (err.type === 'rate') KEYCOOL[pid + '|' + x.k] = Date.now() + Math.min(err.daily ? 3600e3 : 60e3, Math.max(5, (err.retryAfter || 30)) * 1000);
+      else throw err;
+    }
+  }
+  throw lastErr;
+}
+async function rawCallOnce(m, messages, { maxOut = 4096, temperature = 0.2, json = false, signal, dropExtra = false } = {}, key) {
+  const pid = m.provider, P = PROVIDERS[pid], base = providerBase(pid);
   const ctrl = new AbortController();
   let timedOut = false;
   const onAbort = () => ctrl.abort();
@@ -3416,8 +3463,10 @@ function providerCardHtml(pid) {
   const P = PROVIDERS[pid], ps = S.providers[pid];
   const short = P.name.split(' —')[0].split(' (')[0];
   const corsBadge = P.browser === 'ok' ? '<span class="badge badge-ok">Works in browser</span>' : P.browser === 'setup' ? '<span class="badge badge-warn" data-ref="cors">Needs local setup</span>' : '<span class="badge badge-warn" data-ref="cors">Browser access unverified</span>';
-  const keyField = P.needsKey || pid === 'custom' ? `<div class="field"><label for="key-${pid}">API key${pid === 'custom' ? ' (if the endpoint needs one)' : ''}</label>
+  const keyField = P.needsKey || pid === 'custom' ? `<div class="field"><label for="key-${pid}">${BUILTIN_PIDS.includes(pid) ? 'Your own API key (optional — no password needed)' : 'API key' + (pid === 'custom' ? ' (if the endpoint needs one)' : '')}</label>
     <div class="key-row"><input type="password" id="key-${pid}" data-key="${pid}" autocomplete="off" spellcheck="false" placeholder="${esc(P.keyHint || 'Paste key')}" value="${esc(KEYS[pid] || '')}"><button type="button" class="btn btn-sm" data-action="toggle-key" data-pid="${pid}" aria-pressed="false" aria-controls="key-${pid}">Show</button></div>
+    ${P.needsKey ? `<label for="key-${pid}-2" style="margin-top:8px">Second key (optional — used automatically if the first one fails or hits its limit)</label>
+    <div class="key-row"><input type="password" id="key-${pid}-2" data-key="${pid}#2" autocomplete="off" spellcheck="false" placeholder="${esc(P.keyHint || 'Paste 2nd key')}" value="${esc(KEYS[pid + '#2'] || '')}"><button type="button" class="btn btn-sm" data-action="toggle-key" data-pid="${pid}-2" aria-pressed="false" aria-controls="key-${pid}-2">Show</button></div>` : ''}
     ${P.keyUrl ? `<a class="hint" href="${P.keyUrl}" target="_blank" rel="noopener noreferrer">${pid === 'ollama' ? 'Download Ollama' : 'Get a free key'}</a>` : ''}</div>` : '';
   const ollamaFields = pid === 'ollama' ? `<div class="two-col"><div class="field"><label for="pf-ollama-base">Ollama address</label><input type="url" id="pf-ollama-base" data-pfield="base" data-pid="ollama" placeholder="http://localhost:11434" value="${esc(ps.base)}"></div>
     <div class="field"><label for="pf-ollama-ctx">Context size (tokens)</label><input type="number" id="pf-ollama-ctx" data-pfield="numCtx" data-pid="ollama" min="2048" step="1024" value="${esc(ps.numCtx)}"></div></div>
@@ -3441,7 +3490,13 @@ function providerCardHtml(pid) {
       <details><summary class="hint" style="cursor:pointer">Models (<span data-ref="mcount">0</span>)</summary><div class="model-list mt-2" data-ref="models"></div></details>
     </div></article>`;
 }
+function renderBuiltinBox() {
+  const on = Object.keys(BUILT).length > 0;
+  $('#builtinNote').textContent = on ? 'Unlocked for this visit. Built-in keys are in use; your own keys (if any) act as backups.' : 'Locked. Enter the access password to use the built-in keys. If you add your own key below, you do not need the password.';
+  $('#builtinPass').disabled = on; $('#builtinUnlock').disabled = on;
+}
 function renderProviders() {
+  renderBuiltinBox();
   $('#providerList').innerHTML = Object.keys(PROVIDERS).map(providerCardHtml).join('');
   Object.keys(PROVIDERS).forEach(updateProviderCard);
 }
@@ -3512,7 +3567,7 @@ function updateModelChip() {
   callout.hidden = !none;
   if (none) callout.innerHTML = state.vaultExists && !Vault.key
     ? '<strong>Your saved keys are locked.</strong> Unlock them in AI settings to start analyzing. <button type="button" class="btn btn-sm" data-goto="settings" style="margin-left:8px">Unlock keys</button>'
-    : '<strong>Add a free AI key to start.</strong> Gemini, Groq or OpenRouter take about a minute to set up. <button type="button" class="btn btn-sm" data-goto="settings" style="margin-left:8px">Open AI settings</button>';
+    : '<strong>Add a free AI key to start.</strong> Unlock the built-in keys with the access password, or paste your own — Gemini, Groq or OpenRouter take about a minute. <button type="button" class="btn btn-sm" data-goto="settings" style="margin-left:8px">Open AI settings</button>';
 }
 const refreshAllStatus = debounce(() => {
   Object.keys(PROVIDERS).forEach(updateProviderCard);
@@ -3522,7 +3577,7 @@ const refreshAllStatus = debounce(() => {
 onModelsChanged = () => refreshAllStatus();
 
 async function loadModels(pid, quiet) {
-  const P = PROVIDERS[pid], ps = S.providers[pid], base = providerBase(pid), key = KEYS[pid];
+  const P = PROVIDERS[pid], ps = S.providers[pid], base = providerBase(pid), key = firstKey(pid);
   setPStatus(pid, 'Loading models…');
   const getJSON = async (url, headers) => {
     const res = await fetch(url, { headers: headers || {} });
@@ -3587,11 +3642,11 @@ async function loadModels(pid, quiet) {
 }
 async function refreshOpenRouterIfStale() {
   const ps = S.providers.openrouter;
-  if (KEYS.openrouter && ps.approved && (!ps.loaded || !ps.loaded.length || Date.now() - ps.loadedAt > 24 * 3600e3)) await loadModels('openrouter', true);
+  if (hasKey('openrouter') && ps.approved && (!ps.loaded || !ps.loaded.length || Date.now() - ps.loadedAt > 24 * 3600e3)) await loadModels('openrouter', true);
 }
 async function testProvider(pid) {
   const P = PROVIDERS[pid], ps = S.providers[pid];
-  if (P.needsKey && !KEYS[pid]) return setPStatus(pid, 'Add the API key first.');
+  if (P.needsKey && !hasKey(pid)) return setPStatus(pid, 'Add the API key first.');
   if (pid === 'custom' && !ps.base) return setPStatus(pid, 'Add the endpoint URL first.');
   if ((pid === 'openrouter' || pid === 'ollama') && !(ps.loaded && ps.loaded.length)) await loadModels(pid, true);
   const models = allModels().filter((m) => m.provider === pid && (m.free === 'yes' || S.consent[m.key])).sort((a, b) => scoreModel(b) - scoreModel(a));
@@ -3942,10 +3997,12 @@ function bindEvents() {
   document.addEventListener('input', (e) => {
     const t = e.target;
     if (t.dataset.key) {
-      const pid = t.dataset.key; KEYS[pid] = t.value.trim();
+      const fid = t.dataset.key, pid = fid.replace('#2', '');
+      KEYS[fid] = t.value.trim(); TOUCHED.add(fid);
+      Object.keys(KEYCOOL).forEach((x) => { if (x.startsWith(pid + '|')) delete KEYCOOL[x]; });
       const ph = phealth(pid); ph.cooldownUntil = 0; ph.lastError = ''; S.providers[pid].status = '';
       saveVaultSoon(); refreshAllStatus();
-      if (pid === 'openrouter' && KEYS[pid]) autoLoadOR();
+      if (pid === 'openrouter' && hasKey('openrouter')) autoLoadOR();
       return;
     }
     if (t.dataset.pfield) {
@@ -3977,6 +4034,13 @@ function bindEvents() {
     if (p.length < 8) return toast('Use a passphrase of at least 8 characters.', 'warn');
     try { await Vault.enable(p); state.vaultExists = true; S.keystore = 'vault'; saveSettings(); $('#vaultPass').value = ''; renderKeystoreUI(); toast('Keys encrypted and saved on this device.', 'ok'); } catch (e) { toast('Could not save keys: ' + e.message, 'bad'); }
   });
+  const doBuiltin = async () => {
+    const inp = $('#builtinPass'), pw = inp.value; if (!pw) return;
+    try { await unlockBuiltin(pw); inp.value = ''; renderBuiltinBox(); renderProviders(); refreshAllStatus(); updateModelChip(); toast('Built-in keys unlocked for this visit.', 'ok'); if (hasKey('openrouter')) refreshOpenRouterIfStale(); }
+    catch (e) { toast(e.message, 'bad'); }
+  };
+  $('#builtinUnlock').addEventListener('click', doBuiltin);
+  $('#builtinPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doBuiltin(); } });
   $('#unlockBtn').addEventListener('click', unlockVault);
   $('#unlockPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlockVault(); });
   const forget = async () => {
@@ -3990,7 +4054,8 @@ const autoLoadOR = debounce(() => { const ps = S.providers.openrouter; if (!ps.l
 async function unlockVault() {
   try {
     const keys = await Vault.unlock($('#unlockPass').value);
-    KEYS = Object.assign({}, keys, KEYS);
+    const typed = {}; TOUCHED.forEach((f) => { typed[f] = KEYS[f]; });
+    KEYS = Object.assign({}, KEYS, keys, typed);
     $('#unlockPass').value = '';
     renderProviders(); renderKeystoreUI(); refreshAllStatus();
     toast('Keys unlocked for this visit.', 'ok');
