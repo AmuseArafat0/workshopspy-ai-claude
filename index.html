@@ -656,7 +656,7 @@
         <details class="log"><summary>Activity log</summary><pre id="progLog"></pre></details>
       </div>
       <hr class="divider">
-      <p class="note">Transcripts are sent only to the providers you allowed in <a href="#settings" data-goto="settings">AI settings</a>. Everything else stays in this browser.</p>
+      <p class="note">Transcripts are sent only to the providers you allowed in <a href="#settings" data-goto="settings">AI settings</a>. Everything else stays in this browser, plus Google Drive when sync is on in the <a href="#library" data-goto="library">Library</a>.</p>
     </div>
   </div>
 </section>
@@ -738,12 +738,16 @@
   <div class="view-head">
     <div>
       <h2 class="view-title">Workshop library</h2>
-      <p class="view-sub">Saved in this browser (IndexedDB). Back up regularly — clearing site data deletes it.</p>
+      <p class="view-sub" id="libSub">Saved in this browser (IndexedDB). Back up regularly — clearing site data deletes it.</p>
     </div>
     <div class="btn-row">
       <button type="button" class="btn" id="backupBtn"><svg aria-hidden="true"><use href="#i-download"/></svg>Back up everything</button>
       <label class="btn" for="restoreInput" style="cursor:pointer"><svg aria-hidden="true"><use href="#i-upload"/></svg>Restore backup<input type="file" id="restoreInput" accept=".json,application/json" class="sr-only"></label>
     </div>
+  </div>
+  <div class="callout callout-warn flex-between" id="syncNudge" style="margin-bottom:var(--s6)" hidden>
+    <span><strong>Google Drive is not connected.</strong> Until you connect it, this library lives only in this browser.</span>
+    <button type="button" class="btn btn-sm" id="syncNudgeBtn">Connect Google Drive</button>
   </div>
   <div class="panel">
     <div class="lib-toolbar">
@@ -761,10 +765,32 @@
     <h2 class="panel-title">Saved comparisons</h2>
     <div class="lib-list" id="cmpList"></div>
   </div>
+  <div class="panel stack" id="syncPanel">
+    <div>
+      <h2 class="panel-title">Google Drive sync <span class="badge" id="syncBadge">Off</span></h2>
+      <p class="panel-sub">Google Drive holds the master copy of the library. Every save uploads to the Cloud folder, and anything newer is fetched each time the app opens; this browser keeps a fast copy for speed and for working offline. Every finished report is also saved as a PDF in Store Data automatically, and updated when the report changes. Runs through your Apps Script bridge — setup is in the <a href="#guide" data-goto="guide">Guide</a>.</p>
+    </div>
+    <div class="two-col">
+      <div class="field"><label for="syncUrl">Bridge web-app URL</label><input type="url" id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label for="key-sync">Passcode</label><div class="key-row"><input type="password" id="key-sync" autocomplete="off" spellcheck="false" placeholder="PASSCODE from Script properties"><button type="button" class="btn btn-sm" data-action="toggle-key" data-pid="sync" aria-pressed="false" aria-controls="key-sync">Show</button></div></div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn btn-primary" id="syncConnect">Connect</button>
+      <button type="button" class="btn" id="syncNow" disabled><svg aria-hidden="true"><use href="#i-refresh"/></svg>Sync now</button>
+      <button type="button" class="btn" id="syncPdfs" hidden></button>
+      <button type="button" class="btn btn-ghost" id="syncOff" hidden>Disconnect</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="syncUnhide" hidden></button>
+    </div>
+    <p class="status-line" id="syncStatus" aria-live="polite"></p>
+    <p class="hint">The URL and passcode are kept in this browser only and never go into backups.</p>
+  </div>
   <div class="panel">
     <h2 class="panel-title">Danger zone</h2>
-    <p class="panel-sub">Deletes every workshop, comparison and setting stored by this app in this browser. API keys in memory are cleared too.</p>
-    <div class="btn-row mt-4"><button type="button" class="btn btn-danger" id="wipeBtn"><svg aria-hidden="true"><use href="#i-trash"/></svg>Delete all data</button></div>
+    <p class="panel-sub" id="dangerSub">Deletes every workshop, comparison and setting stored by this app in this browser. API keys in memory are cleared too.</p>
+    <div class="btn-row mt-4">
+      <button type="button" class="btn" id="clearCacheBtn" hidden><svg aria-hidden="true"><use href="#i-refresh"/></svg>Clear this browser’s copy</button>
+      <button type="button" class="btn btn-danger" id="wipeBtn"><svg aria-hidden="true"><use href="#i-trash"/></svg><span id="wipeLabel">Delete all data</span></button>
+    </div>
   </div>
 </section>
 
@@ -873,6 +899,15 @@
       <li>If a model fails or hits a limit, the next free model takes over and you are told. If every model fails, you get an error and the progress so far is saved so you can resume.</li>
     </ol>
 
+    <h3>Google Drive sync (Apps Script bridge)</h3>
+    <ol>
+      <li>At <strong>script.google.com</strong>, create a project, replace <code>Code.gs</code> with the bridge file, and under <em>Project Settings → Script properties</em> add <code>PASSCODE</code> with 12 or more random characters.</li>
+      <li>Run <code>setup</code> once and allow Drive access. The log shows both folder names when it worked.</li>
+      <li><em>Deploy → New deployment → Web app</em>: Execute as <strong>Me</strong>, Who has access <strong>Anyone</strong>. Copy the URL ending in <code>/exec</code>.</li>
+      <li>In <a href="#library" data-goto="library">Library → Google Drive sync</a>, paste the URL and passcode and press Connect. The first sync uploads this browser’s library. Teammates use the same two values.</li>
+    </ol>
+    <p>Google Drive holds the master copy and this browser keeps a fast copy. Each save uploads to the Cloud folder; opening the app fetches anything newer, so everyone compares the same workshops. “Clear this browser’s copy” in the Library re-downloads everything from Drive. Deleting a workshop here removes it from this browser only — the Drive copy stays. Every finished report is saved as a PDF in Store Data automatically — after an analysis, a re-analysis, a style rewrite or a regenerated section — replacing that workshop’s previous PDF. Older reports can be added with “Upload missing PDFs” in the Library. “Print or save as PDF” is made by the browser and is not uploaded.</p>
+
     <h3>Ollama setup (local AI)</h3>
     <p>Browsers block pages from talking to Ollama unless Ollama allows the page’s address. Quit Ollama, then start it with your site’s origin allowed:</p>
     <pre>OLLAMA_ORIGINS="https://&lt;your-username&gt;.github.io" ollama serve</pre>
@@ -885,7 +920,9 @@
       <li>Some providers refuse browser requests (CORS). The app reports this as “blocked by the browser” instead of pretending.</li>
       <li>Scanned PDFs (images of text) cannot be read here — export the transcript as text instead.</li>
       <li>The direct PDF download embeds a Unicode font (loaded once from the CDN), so ₹ and accented text stay real text. Devanagari, emoji and other scripts are drawn as images so nothing turns into “?”. Offline, it still works but draws every special character as an image.</li>
-      <li>Data lives in this browser only. Use <strong>Back up everything</strong> in the library to keep a copy or move to another device.</li>
+      <li>Without Drive sync, data lives in this browser only. Use <strong>Back up everything</strong> in the library to keep a copy or move to another device.</li>
+      <li>Anyone with the bridge URL and passcode can read and write the synced library. Keep both inside the team; to rotate, change <code>PASSCODE</code> in Script properties.</li>
+      <li>Drive sync keeps the newest save of each workshop. If two people change the same workshop at once, the later save wins.</li>
       <li>The music is original generative jazz piano, synthesized live in your browser — no recordings are used.</li>
     </ul>
   </div>
@@ -2553,7 +2590,7 @@ function pdfAscii(s) {
   return s.replace(/[“”«»„]/g, '"').replace(/[‘’‚]/g, "'").replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[•●▪◦]/g, '*');
 }
 
-async function exportPdf(rec) {
+async function exportPdf(rec, opts = {}) {
   await loadScript(LIBS.jspdf);
   const lib = window.jspdf;
   if (!lib || !lib.jsPDF) throw new Error('The PDF library did not load.');
@@ -2851,7 +2888,10 @@ async function exportPdf(rec) {
     doc.text('WorkshopSpy AI - competitor workshop report', M, H - 24);
     doc.text(`Page ${p} of ${pages}`, W - M, H - 24, { align: 'right' });
   }
-  doc.save(`${slug(title)}-report.pdf`);
+  const pdfName = `${slug([rec.competitor, title].filter(Boolean).join(' '))}${rec.date ? '-' + rec.date : ''}-report.pdf`;
+  if (opts.upload) return { doc, name: pdfName }; // automatic Store Data upload: no download, no toasts
+  doc.save(pdfName);
+  Sync.pdf(rec, pdfName, doc);
   if (!fonts) toast('Unicode fonts could not be loaded (offline or blocked CDN), so special characters were drawn as images instead.', 'info', { ms: 6000 });
   else if (rasterLines) toast(`Done. ${rasterLines} line${rasterLines === 1 ? '' : 's'} with non-Latin text or emoji were drawn as images so nothing is lost.`, 'info', { ms: 5000 });
 }
@@ -3083,6 +3123,7 @@ async function saveRecord(rec) {
   const i = state.workshops.findIndex((w) => w.id === rec.id);
   if (i >= 0) state.workshops[i] = rec; else state.workshops.push(rec);
   refreshLists();
+  Sync.queue('ws', rec);
 }
 async function runAnalysis(rec, sink) {
   const ctrl = new AbortController();
@@ -3096,6 +3137,7 @@ async function runAnalysis(rec, sink) {
     await analyzeRecord(rec, ctl);
     if (sink === 'main') $('#progStatus').textContent = 'Done — opening the report.';
     toast(`Report ready: ${rec.title}`, 'ok');
+    Sync.autoPdf(rec);
     return true;
   } catch (e) {
     rec.status = 'partial';
@@ -3197,7 +3239,7 @@ function renderReport() {
         <button type="button" class="btn btn-sm" data-action="copy-all">${ICON('copy')}Copy report</button>
         <details class="menu"><summary class="btn btn-sm">${ICON('download')}Download</summary>
           <div class="menu-pop">
-            <button type="button" data-action="dl-pdf">PDF<small>Organised layout with contents page — ₹, accents and other scripts supported</small></button>
+            <button type="button" data-action="dl-pdf">PDF<small>Organised layout with contents page — ₹, accents and other scripts supported${Sync.on() ? '. Store Data in Drive gets a copy automatically' : ''}</small></button>
             <button type="button" data-action="print">Print or save as PDF<small>Full Unicode via your browser</small></button>
             <button type="button" data-action="dl-md">Markdown (.md)</button>
             <button type="button" data-action="dl-txt">Plain text (.txt)</button>
@@ -3255,6 +3297,7 @@ async function regenSection(id) {
     rec.models[r.model.label] = (rec.models[r.model.label] || 0) + 1;
     await saveRecord(rec);
     toast(`“${sec.title}” regenerated with ${r.model.label}.`, 'ok');
+    Sync.autoPdf(rec);
   } catch (e) {
     if (!isAbort(e)) toast(e.message.split('\n')[0], 'bad');
   } finally {
@@ -3325,7 +3368,7 @@ async function startCompare() {
     const r = await runComparison(A, B, ctl);
     const cmp = { id: uid(), aId: A.id, bId: B.id, aTitle: A.title, bTitle: B.title, aDate: A.date, bDate: B.date, competitor: B.competitor || A.competitor, createdAt: new Date().toISOString(), rows: r.rows, summary: r.summary, models: r.models, notes: r.notes };
     try { await DB.put('comparisons', cmp); } catch (e) { toast('Comparison done but could not be saved: ' + e.message, 'bad'); }
-    state.comparisons.push(cmp); state.cmpCurrent = cmp; state.cmpFilter = 'all'; state.cmpDim = '';
+    state.comparisons.push(cmp); Sync.queue('cmp', cmp); state.cmpCurrent = cmp; state.cmpFilter = 'all'; state.cmpDim = '';
     $('#cmpStatus').textContent = `Done — ${r.rows.length} items compared.`;
     renderCmpResult(cmp);
     $('#cmpResult').scrollIntoView({ block: 'start' });
@@ -3458,7 +3501,7 @@ function libRow(w) {
   return `<div class="lib-row">
     <input type="checkbox" class="check" style="width:20px;height:20px;accent-color:var(--gold)" data-action="lib-select" data-id="${w.id}" aria-label="Select ${esc(w.title)} for comparison"${sel ? ' checked' : ''}>
     <div><h3>${esc(w.title)}</h3><p class="sub">${esc([w.competitor, fmtDate(w.date), w.duration ? fmtDuration(w.duration) : '', w.source ? fmtNum(w.source.words) + ' words' : ''].filter(Boolean).join(' — '))}</p>
-      <div class="chips">${statusChip(w)}${w.facts ? `<span class="chip"><strong>${w.facts.tools.length}</strong> tools</span>` : ''}${price ? `<span class="chip">${esc([price.item, price.amount].filter(Boolean).join(': ').slice(0, 60))}</span>` : ''}<span class="chip">Saved ${esc(fmtDateTime(w.updatedAt))}</span></div></div>
+      <div class="chips">${statusChip(w)}${w.facts ? `<span class="chip"><strong>${w.facts.tools.length}</strong> tools</span>` : ''}${price ? `<span class="chip">${esc([price.item, price.amount].filter(Boolean).join(': ').slice(0, 60))}</span>` : ''}<span class="chip">Saved ${esc(fmtDateTime(w.updatedAt))}</span>${Sync.chip(w)}</div></div>
     <div class="btn-row">
       <button type="button" class="btn btn-sm" data-action="open" data-id="${w.id}">Open</button>
       <button type="button" class="btn btn-sm" data-action="chat-ws" data-id="${w.id}">${ICON('chat')}Chat</button>
@@ -3510,7 +3553,340 @@ async function restoreBackup(file) {
   state.workshops = await DB.all('workshops'); state.comparisons = await DB.all('comparisons');
   PASSAGES.clear(); refreshLists(); renderLibrary(); refreshAllStatus();
   toast(`Restored ${n} workshops.`, 'ok');
+  if (Sync.on()) Sync.reconcile('restore');
 }
+
+/* =====================================================================
+   GOOGLE DRIVE SYNC — through the team's Apps Script bridge (Code.gs)
+   Cloud folder: one JSON per workshop / comparison. Store Data folder: downloaded PDFs.
+   Upload: on every save (debounced; running analyses are skipped). Fetch: every time the app opens, plus "Sync now".
+   Newest updatedAt wins. Deleting here never deletes in Drive; the item is only hidden from this browser's fetches.
+   ===================================================================== */
+const Sync = {
+  cfg: null, cloud: null, busy: false, queued: new Map(), timer: 0, state: 'off', text: '', warned: false,
+  on() { return !!(this.cfg && this.cfg.url && this.cfg.pass); },
+  async load() {
+    try { const v = await DB.get('settings', 'sync'); this.cfg = v && v.value ? v.value : null; } catch (e) { this.cfg = null; }
+    if (this.cfg) this.cfg.skip = this.cfg.skip || {};
+  },
+  async persist() {
+    try { if (this.cfg) await DB.put('settings', { key: 'sync', value: this.cfg }); else await DB.del('settings', 'sync'); } catch (e) { console.warn('Drive sync settings not saved', e); }
+  },
+  split(key) { const i = key.indexOf(':'); return [key.slice(0, i), key.slice(i + 1)]; },
+  stamp(kind, o) { return String((kind === 'ws' ? o.updatedAt : o.updatedAt || o.createdAt) || ''); },
+  local(kind, id) { return kind === 'ws' ? findWs(id) : state.comparisons.find((c) => c.id === id); },
+
+  async call(action, body = {}, timeoutMs = 90000, cfg = this.cfg) {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ pass: cfg.pass, action }, body)), redirect: 'follow', signal: ctrl.signal });
+    } catch (e) {
+      throw new Error(e.name === 'AbortError' ? 'the Drive bridge did not answer in time.' : 'could not reach the Drive bridge — check the URL, your connection, and that the deployment is set to “Anyone”.');
+    } finally { clearTimeout(t); }
+    const txt = await res.text();
+    let j = null; try { j = JSON.parse(txt); } catch (e) { /* handled below */ }
+    if (!j) throw new Error(/<html/i.test(txt) ? 'the bridge returned a Google page instead of data — the deployment must be “Anyone” and the URL must end in /exec.' : `unreadable reply from the Drive bridge (HTTP ${res.status}).`);
+    if (!j.ok) throw new Error(j.error || 'the Drive bridge reported an error.');
+    return j;
+  },
+
+  queue(kind, o) {
+    if (!this.on() || !o || (kind === 'ws' && o.status === 'running')) return;
+    this.queued.set(`${kind}:${o.id}`, { kind, o });
+    clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), 2500);
+  },
+  forget(kind, id) {
+    const key = `${kind}:${id}`;
+    this.queued.delete(key);
+    if (!this.cfg) return;
+    this.cfg.skip[key] = 1; this.persist(); this.renderUI();
+  },
+  async flush() {
+    if (!this.on() || !this.queued.size) return;
+    if (this.busy) { clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), 3000); return; }
+    this.busy = true; this.setStatus('busy', 'Saving to Google Drive…');
+    let item = null;
+    try {
+      while (this.queued.size) {
+        const [key, it] = this.queued.entries().next().value;
+        this.queued.delete(key); item = [key, it];
+        await this.push(it.kind, it.o);
+        item = null;
+      }
+      this.cfg.lastError = ''; this.persist();
+      this.setStatus('ok', `Saved to Drive at ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}.`);
+    } catch (e) {
+      if (item && !this.queued.has(item[0])) this.queued.set(item[0], item[1]);
+      this.fail(e, 'Upload');
+    } finally {
+      this.busy = false; this.renderUI();
+      if (state.view === 'library') renderLibrary();
+    }
+  },
+  packWs(rec) {
+    const copy = Object.assign({}, rec);
+    copy.chunks = (rec.chunks || []).map((c) => { const k = Object.assign({}, c); delete k.parsed; return k; });
+    return JSON.stringify(copy);
+  },
+  async push(kind, o) {
+    const stamp = this.stamp(kind, o);
+    const r = await this.call('put', {
+      kind, id: o.id, updatedAt: stamp,
+      title: kind === 'ws' ? o.title : `${o.aTitle} vs ${o.bTitle}`, competitor: o.competitor || '', date: kind === 'ws' ? o.date : o.bDate || '',
+      data: kind === 'ws' ? this.packWs(o) : JSON.stringify(o)
+    }, 180000);
+    if (this.cloud) this.cloud[`${kind}:${o.id}`] = Object.assign({}, this.cloud[`${kind}:${o.id}`], { updatedAt: r.cloudUpdatedAt || stamp });
+    return r;
+  },
+  async storeLocal(key, data) {
+    let o; try { o = JSON.parse(data); } catch (e) { return false; }
+    const [kind, id] = this.split(key);
+    if (!o || o.id !== id) return false;
+    if (kind === 'ws') {
+      if (typeof o.transcript !== 'string') return false;
+      const cur = findWs(id);
+      if (cur && cur.status === 'running') return false;
+      if (o.status === 'running') o.status = 'partial';
+      await DB.put('workshops', o);
+      const i = state.workshops.findIndex((w) => w.id === id);
+      if (i >= 0) state.workshops[i] = o; else state.workshops.push(o);
+      PASSAGES.delete(id);
+      if (state.report && state.report.id === id) { state.report = o; if (state.view === 'report' && !state.running) renderReport(); }
+    } else {
+      if (!Array.isArray(o.rows)) return false;
+      await DB.put('comparisons', o);
+      const i = state.comparisons.findIndex((c) => c.id === id);
+      if (i >= 0) state.comparisons[i] = o; else state.comparisons.push(o);
+    }
+    return true;
+  },
+  async reconcile(reason = 'open') {
+    if (!this.on()) return;
+    if (this.busy) { clearTimeout(this.timer); this.timer = setTimeout(() => this.reconcile(reason), 3000); return; }
+    this.busy = true; this.renderUI(); this.setStatus('busy', 'Checking Google Drive…');
+    let pulled = 0, pushed = 0;
+    try {
+      const list = await this.call('list');
+      this.cloud = list.items || {};
+      const want = Object.entries(this.cloud).filter(([k, m]) => {
+        if (this.cfg.skip[k]) return false;
+        const [kind, id] = this.split(k); if (kind !== 'ws' && kind !== 'cmp') return false;
+        const loc = this.local(kind, id);
+        if (!loc) return true;
+        if (kind === 'ws' && loc.status === 'running') return false;
+        return String(m.updatedAt || '') > this.stamp(kind, loc);
+      }).map(([k, m]) => ({ k, size: +m.size || 0 }));
+      const batches = []; let cur = [], size = 0;
+      for (const x of want) { if (cur.length && (cur.length >= 20 || size + x.size > 6e6)) { batches.push(cur); cur = []; size = 0; } cur.push(x); size += x.size; }
+      if (cur.length) batches.push(cur);
+      for (const b of batches) {
+        this.setStatus('busy', `Fetching from Google Drive… ${pulled}/${want.length}`);
+        const r = await this.call('get', { keys: b.map((x) => x.k) }, 180000);
+        for (const it of r.items || []) if (it.data && (await this.storeLocal(it.key, it.data))) pulled++;
+      }
+      if (pulled) refreshLists();
+      const up = [
+        ...state.workshops.filter((w) => w.status !== 'running').map((w) => ['ws', w]),
+        ...state.comparisons.map((c) => ['cmp', c])
+      ].filter(([kind, o]) => { const m = this.cloud[`${kind}:${o.id}`]; return !m || this.stamp(kind, o) > String(m.updatedAt || ''); });
+      for (const [kind, o] of up) {
+        this.setStatus('busy', `Uploading to Google Drive… ${pushed + 1}/${up.length}`);
+        await this.push(kind, o); this.queued.delete(`${kind}:${o.id}`); pushed++;
+      }
+      this.cfg.lastSyncAt = new Date().toISOString(); this.cfg.lastError = ''; await this.persist();
+      const nWs = Object.keys(this.cloud).filter((k) => k.startsWith('ws:')).length;
+      this.setStatus('ok', `Synced ${fmtDateTime(this.cfg.lastSyncAt)} — ${nWs} workshop${nWs === 1 ? '' : 's'} in Drive${pulled ? `, ${pulled} fetched` : ''}${pushed ? `, ${pushed} uploaded` : ''}.`);
+      if (pulled && reason !== 'connect') toast(`Fetched ${pulled} update${pulled === 1 ? '' : 's'} from Google Drive.`, 'ok');
+      if (reason === 'connect' || reason === 'manual') toast(`Drive sync done${pulled ? ` — ${pulled} fetched` : ''}${pushed ? `${pulled ? ',' : ' —'} ${pushed} uploaded` : ''}.`, 'ok');
+    } catch (e) {
+      if (pulled) refreshLists();
+      this.fail(e, 'Sync');
+    } finally {
+      this.busy = false; this.renderUI();
+      if (state.view === 'library') renderLibrary();
+      if (this.queued.size) this.flush();
+    }
+  },
+  async pdf(rec, name, doc, opts = {}) {
+    if (!this.on()) return false;
+    const sig = opts.sig || this.reportSig(rec);
+    try {
+      const blob = doc.output('blob');
+      if (blob.size > 35e6) throw new Error('the PDF is over 35 MB, too large for the bridge.');
+      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('could not read the PDF.')); r.readAsDataURL(blob); });
+      if (!opts.quiet) toast('Uploading the PDF to Drive → Store Data…', 'info', { ms: 3000 });
+      const r = await this.call('pdf', { wsId: rec.id, name, base64: b64 }, 180000);
+      this.markPdf(rec, sig);
+      const open = r.url ? [{ label: 'Open in Drive', run: () => window.open(r.url, '_blank', 'noopener') }] : [];
+      if (!opts.silent) toast(opts.quiet ? `PDF of “${rec.title}” saved to Drive → Store Data.` : `PDF saved to Drive → Store Data as “${r.name}”.`, 'ok', { actions: open });
+      return true;
+    } catch (e) {
+      if (!opts.silent) toast(opts.quiet ? `The PDF of “${rec.title}” could not be uploaded to Store Data: ${e.message} Retry with “Upload missing PDFs” in the Library.` : 'The PDF was downloaded, but the Drive upload failed: ' + e.message, 'bad', { ms: 10000 });
+      return false;
+    } finally { this.renderUI(); }
+  },
+  /** Fingerprint of what the PDF shows. A workshop whose pdfSig matches already has an up-to-date PDF in Store Data. */
+  reportSig(rec) {
+    const secs = (rec.report && rec.report.sections) || {};
+    const s = [rec.style || '', rec.title || '', rec.competitor || '', rec.date || '', ...SECTIONS.map((x) => (secs[x.id] && secs[x.id].md) || '')].join('\u0001');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16);
+  },
+  sigOf(rec) {
+    this.sigCache = this.sigCache || new WeakMap();
+    const c = this.sigCache.get(rec);
+    if (c && c.u === rec.updatedAt) return c.sig;
+    const sig = this.reportSig(rec); this.sigCache.set(rec, { u: rec.updatedAt, sig }); return sig;
+  },
+  markPdf(rec, sig) {
+    const cur = findWs(rec.id) || rec;
+    if (cur.pdfSig === sig || this.reportSig(cur) !== sig) return; // report changed meanwhile: leave it marked as missing
+    cur.pdfSig = sig;
+    if (cur.status !== 'running') saveRecord(cur).catch(() => { /* reported by saveRecord */ });
+  },
+  missingPdfs() { return state.workshops.filter((w) => w.status === 'complete' && w.pdfSig !== this.sigOf(w)); },
+  /** Debounced: several quick changes (e.g. regenerating sections one after another) produce one upload. */
+  autoPdf(rec) {
+    if (!this.on() || !rec || rec.status !== 'complete') return;
+    this.pdfTimers = this.pdfTimers || {};
+    clearTimeout(this.pdfTimers[rec.id]);
+    this.pdfTimers[rec.id] = setTimeout(() => { delete this.pdfTimers[rec.id]; this.uploadPdfNow(rec); }, 4000);
+  },
+  /** Builds the PDF in the background and uploads it to Store Data. Jobs run one at a time. */
+  uploadPdfNow(rec, opts = {}) {
+    const job = async () => {
+      const cur = findWs(rec.id) || rec;
+      if (!this.on() || cur.status !== 'complete') return false;
+      const sig = this.reportSig(cur);
+      if (cur.pdfSig === sig) return true;
+      let built;
+      try { built = await exportPdf(cur, { upload: true }); }
+      catch (e) { if (!opts.silent) toast(`Could not build the PDF of “${cur.title}”: ${e.message}`, 'bad', { ms: 9000 }); return false; }
+      return this.pdf(cur, built.name, built.doc, { quiet: true, silent: opts.silent, sig });
+    };
+    this.pdfChain = (this.pdfChain || Promise.resolve()).then(job, job);
+    return this.pdfChain;
+  },
+  async uploadMissingPdfs() {
+    const list = this.missingPdfs();
+    if (!list.length || this.pdfBusy) return;
+    this.pdfBusy = true; this.renderUI();
+    let done = 0, failed = 0;
+    for (const w of list) {
+      this.text = `Uploading PDFs to Store Data… ${done + failed + 1} of ${list.length}`; this.renderUI();
+      if (await this.uploadPdfNow(w, { silent: true })) done++; else failed++;
+    }
+    this.pdfBusy = false;
+    this.setStatus(failed ? 'bad' : 'ok', `Uploaded ${done} PDF${done === 1 ? '' : 's'} to Store Data${failed ? `; ${failed} failed — press the button again to retry` : ''}.`);
+    toast(failed ? `${failed} PDF upload${failed === 1 ? '' : 's'} failed. ${done} uploaded.` : `${done} PDF${done === 1 ? '' : 's'} uploaded to Store Data.`, failed ? 'bad' : 'ok');
+  },
+  fail(e, what) {
+    const msg = `${what} failed: ${e.message}`;
+    if (this.cfg) { this.cfg.lastError = msg; this.persist(); }
+    this.setStatus('bad', msg + ' This browser’s library still works; press Sync now to retry.');
+    if (!this.warned) { this.warned = true; toast('Google Drive ' + msg.charAt(0).toLowerCase() + msg.slice(1), 'bad', { ms: 10000, actions: [{ label: 'Open Library', run: () => showView('library') }] }); }
+  },
+  chip(w) {
+    if (!this.on() || !this.cloud || w.status === 'running') return '';
+    const m = this.cloud[`ws:${w.id}`];
+    return m && String(m.updatedAt || '') >= this.stamp('ws', w) ? '<span class="chip">In Drive</span>' : '<span class="chip">Not in Drive yet</span>';
+  },
+
+  async connect() {
+    const url = $('#syncUrl').value.trim().replace(/\/+$/, ''), pass = $('#key-sync').value.trim();
+    if (!/^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+|macros)\/s\/[\w-]+\/exec$/.test(url)) return toast('Paste the web-app URL from Deploy → Manage deployments. It looks like https://script.google.com/macros/s/…/exec', 'warn', { ms: 8000 });
+    if (!pass) return toast('Enter the bridge passcode.', 'warn');
+    const cfg = { url, pass, skip: (this.cfg && this.cfg.skip) || {}, lastSyncAt: '', lastError: '' };
+    $('#syncConnect').disabled = true; this.setStatus('busy', 'Connecting to the Drive bridge…');
+    try {
+      const r = await this.call('ping', {}, 60000, cfg);
+      this.cfg = cfg; this.warned = false; await this.persist();
+      this.setStatus('ok', `Connected to “${r.cloud}” and “${r.store}” — ${r.workshops} workshops and ${r.comparisons} comparisons in Drive.`);
+      await this.reconcile('connect');
+    } catch (e) {
+      this.setStatus('bad', 'Could not connect: ' + e.message);
+    } finally { $('#syncConnect').disabled = false; this.renderUI(); }
+  },
+  async disconnect() {
+    if ((await ask({ title: 'Disconnect Google Drive?', body: 'This browser stops uploading and fetching. Nothing is deleted from Drive or from this browser.', ok: 'Disconnect' })) !== 'ok') return;
+    this.cfg = null; this.cloud = null; this.queued.clear(); await this.persist();
+    $('#syncUrl').value = ''; $('#key-sync').value = '';
+    this.setStatus('off', ''); this.renderUI();
+    if (state.view === 'library') renderLibrary();
+  },
+  /** Uploads anything pending, then returns the local items still missing or older in Drive; null if Drive could not be reached. */
+  async unsynced() {
+    if (!this.on()) return null;
+    if (this.busy) { toast('Google Drive is syncing — try again in a moment.', 'warn'); return null; }
+    clearTimeout(this.timer);
+    await this.reconcile('check');
+    if (this.state === 'bad' || !this.cloud) return null;
+    return [
+      ...state.workshops.filter((w) => w.status !== 'running').map((w) => ['ws', w]),
+      ...state.comparisons.map((c) => ['cmp', c])
+    ].filter(([kind, o]) => { const m = this.cloud[`${kind}:${o.id}`]; return !m || this.stamp(kind, o) > String(m.updatedAt || ''); });
+  },
+  async clearCache() {
+    if (!this.on()) return;
+    if (state.running) return toast('Wait for the current run to finish.', 'warn');
+    const left = await this.unsynced();
+    if (left === null) return toast('Google Drive could not be checked, so this browser’s copy was kept. Fix the sync, then try again.', 'bad', { ms: 9000 });
+    if (left.length) return toast(`${left.length} item${left.length === 1 ? ' is' : 's are'} not in Drive yet, so this browser’s copy was kept. Press Sync now, then try again.`, 'bad', { ms: 9000 });
+    const nWs = state.workshops.length, nCmp = state.comparisons.length;
+    if ((await ask({ title: 'Clear this browser’s copy?', body: `All ${nWs} workshop${nWs === 1 ? '' : 's'} and ${nCmp} comparison${nCmp === 1 ? '' : 's'} here are safely in Google Drive. This browser’s copy is deleted and downloaded again from Drive right away.\n\nSettings, API keys and the Drive connection stay. Workshops you deleted from this browser stay hidden.`, ok: 'Clear and re-download' })) !== 'ok') return;
+    await DB.clear('workshops'); await DB.clear('comparisons');
+    state.workshops = []; state.comparisons = []; state.report = null; state.cmpCurrent = null; state.libSel.clear(); PASSAGES.clear();
+    refreshLists(); if (state.view === 'library') renderLibrary();
+    await this.reconcile('refetch');
+  },
+  async unhide() {
+    if (!this.cfg) return;
+    this.cfg.skip = {}; await this.persist();
+    this.reconcile('manual');
+  },
+  setStatus(kind, text) { this.state = kind; this.text = text; this.renderUI(); },
+  renderUI() {
+    const badge = $('#syncBadge'); if (!badge) return;
+    const on = this.on();
+    const st = !on ? 'off' : this.busy ? 'busy' : this.state === 'bad' ? 'bad' : 'ok';
+    badge.className = 'badge ' + ({ off: '', busy: 'badge-info', bad: 'badge-bad', ok: 'badge-ok' })[st];
+    badge.textContent = ({ off: 'Off', busy: 'Syncing', bad: 'Needs attention', ok: 'Connected' })[st];
+    $('#syncStatus').textContent = this.text || (on ? (this.cfg.lastError ? this.cfg.lastError : this.cfg.lastSyncAt ? `Last synced ${fmtDateTime(this.cfg.lastSyncAt)}.` : 'Connected.') : 'Not connected — this library lives in this browser only.');
+    $('#syncNow').disabled = !on || this.busy;
+    $('#syncOff').hidden = !on;
+    $('#syncConnect').textContent = on ? 'Reconnect' : 'Connect';
+    $('#syncConnect').className = on ? 'btn' : 'btn btn-primary';
+    $('#syncNow').className = on ? 'btn btn-primary' : 'btn';
+    const hidden = on ? Object.keys(this.cfg.skip || {}).length : 0;
+    const uh = $('#syncUnhide'); uh.hidden = !hidden; uh.textContent = `Fetch ${hidden} deleted item${hidden === 1 ? '' : 's'} back from Drive`;
+    $('#libSub').textContent = on ? `Your library lives in Google Drive; this browser keeps a fast copy${this.cfg.lastSyncAt ? ` — last sync ${fmtDateTime(this.cfg.lastSyncAt)}` : ''}.` : 'Saved in this browser only (IndexedDB). Connect Google Drive below so the library lives in Drive.';
+    const missing = on ? this.missingPdfs().length : 0;
+    const pb = $('#syncPdfs'); pb.hidden = !missing && !this.pdfBusy; pb.disabled = !!this.pdfBusy;
+    pb.textContent = this.pdfBusy ? 'Uploading PDFs…' : `Upload missing PDFs (${missing})`;
+    $('#syncNudge').hidden = on;
+    $('#clearCacheBtn').hidden = !on;
+    $('#clearCacheBtn').disabled = this.busy;
+    $('#wipeLabel').textContent = on ? 'Remove everything from this browser' : 'Delete all data';
+    $('#dangerSub').textContent = on
+      ? 'Google Drive keeps the library. “Clear this browser’s copy” deletes the local copy and downloads it again from Drive — settings, keys and the connection stay. “Remove everything” also erases settings, saved API keys and the Drive connection from this browser. Neither touches the files in Drive.'
+      : 'Deletes every workshop, comparison and setting stored by this app in this browser. Without Google Drive there is no other copy — back up first. API keys in memory are cleared too.';
+  },
+  bind() {
+    if (this.cfg) { $('#syncUrl').value = this.cfg.url || ''; $('#key-sync').value = this.cfg.pass || ''; }
+    $('#syncConnect').addEventListener('click', () => this.connect());
+    $('#syncNow').addEventListener('click', () => this.reconcile('manual'));
+    $('#syncOff').addEventListener('click', () => this.disconnect());
+    $('#syncUnhide').addEventListener('click', () => this.unhide());
+    $('#clearCacheBtn').addEventListener('click', () => this.clearCache());
+    $('#syncPdfs').addEventListener('click', () => this.uploadMissingPdfs());
+    $('#syncNudgeBtn').addEventListener('click', () => { $('#syncPanel').scrollIntoView({ block: 'center' }); $('#syncUrl').focus({ preventScroll: true }); });
+    window.addEventListener('online', () => { if (this.on() && this.queued.size) this.flush(); });
+    window.addEventListener('beforeunload', (e) => { if (this.on() && this.state !== 'bad' && (this.queued.size || this.busy)) { e.preventDefault(); e.returnValue = ''; } });
+    this.renderUI();
+  }
+};
 
 /* ---------- settings ---------- */
 function mergeSettings(v) {
@@ -3976,7 +4352,7 @@ const ACTIONS = {
   'cmp-json': () => downloadFile(`comparison-${slug(state.cmpCurrent.bTitle)}.json`, JSON.stringify(state.cmpCurrent, null, 2), 'application/json'),
   'cmp-chat': () => { const c = state.cmpCurrent; if (!findWs(c.bId) || !findWs(c.aId)) return toast('One of these workshops was deleted.', 'warn'); showView('chat'); renderChatSelectors({ w: c.bId, w2: c.aId }); },
   'open-cmp': (el) => { const c = state.comparisons.find((x) => x.id === el.dataset.id); if (!c) return; state.cmpCurrent = c; state.cmpFilter = 'all'; state.cmpDim = ''; showView('compare'); renderCompareSelectors({ a: c.aId, b: c.bId }); renderCmpResult(c); },
-  'del-cmp': async (el) => { if ((await ask({ title: 'Delete this comparison?', body: 'The workshops themselves are kept.', ok: 'Delete', danger: true })) !== 'ok') return; await DB.del('comparisons', el.dataset.id); state.comparisons = state.comparisons.filter((c) => c.id !== el.dataset.id); if (state.cmpCurrent && state.cmpCurrent.id === el.dataset.id) { state.cmpCurrent = null; $('#cmpResult').innerHTML = ''; } renderLibrary(); },
+  'del-cmp': async (el) => { if ((await ask({ title: 'Delete this comparison?', body: 'The workshops themselves are kept.', ok: 'Delete', danger: true })) !== 'ok') return; await DB.del('comparisons', el.dataset.id); Sync.forget('cmp', el.dataset.id); state.comparisons = state.comparisons.filter((c) => c.id !== el.dataset.id); if (state.cmpCurrent && state.cmpCurrent.id === el.dataset.id) { state.cmpCurrent = null; $('#cmpResult').innerHTML = ''; } renderLibrary(); },
   'suggest': (el) => sendChat(el.dataset.q),
   'copy-msg': async (el) => { const rec = findWs($('#chatW').value); const m = rec && rec.chat[+el.dataset.i]; if (m) toast((await copyText(m.content)) ? 'Answer copied.' : 'Copy failed.', 'ok'); },
   'open': (el) => openReport(el.dataset.id),
@@ -3984,8 +4360,8 @@ const ACTIONS = {
   'dl-ws': (el) => { const w = findWs(el.dataset.id); if (w) downloadFile(`${slug(w.title)}-report.json`, reportJSON(w), 'application/json'); },
   'del-ws': async (el) => {
     const w = findWs(el.dataset.id); if (!w) return;
-    if ((await ask({ title: `Delete “${w.title}”?`, body: 'Its transcript, report, notes and chat are removed from this browser. Saved comparisons that used it are kept.', ok: 'Delete', danger: true })) !== 'ok') return;
-    await DB.del('workshops', w.id); state.workshops = state.workshops.filter((x) => x.id !== w.id); state.libSel.delete(w.id); PASSAGES.delete(w.id);
+    if ((await ask({ title: `Delete “${w.title}”?`, body: 'Its transcript, report, notes and chat are removed from this browser. Saved comparisons that used it are kept.' + (Sync.on() ? ' The copy in Google Drive stays; this browser just stops fetching it.' : ''), ok: 'Delete', danger: true })) !== 'ok') return;
+    await DB.del('workshops', w.id); Sync.forget('ws', w.id); state.workshops = state.workshops.filter((x) => x.id !== w.id); state.libSel.delete(w.id); PASSAGES.delete(w.id);
     if (state.report && state.report.id === w.id) state.report = null;
     refreshLists(); renderLibrary(); toast('Workshop deleted.', 'ok');
   },
@@ -4067,7 +4443,14 @@ function bindEvents() {
   $('#backupBtn').addEventListener('click', () => backupAll().catch((e) => toast(e.message, 'bad')));
   $('#restoreInput').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) restoreBackup(f).catch((x) => toast(x.message, 'bad')); });
   $('#wipeBtn').addEventListener('click', async () => {
-    if ((await ask({ title: 'Delete all data?', body: 'Every workshop, comparison, setting and saved key in this browser will be erased. This cannot be undone — download a backup first if unsure.', ok: 'Delete everything', danger: true })) !== 'ok') return;
+    if (state.running) return toast('Wait for the current run to finish.', 'warn');
+    let body = 'Every workshop, comparison, setting and saved key in this browser will be erased. This cannot be undone — download a backup first if unsure.';
+    if (Sync.on()) {
+      const left = await Sync.unsynced();
+      body = 'This browser’s copy of the library, its settings, saved API keys and the Google Drive connection are erased. Files in Google Drive are not touched — reconnect to get the library back.'
+        + (left === null ? '\n\nGoogle Drive could not be checked just now, so recent changes may not be in Drive yet.' : left.length ? `\n\n${left.length} item${left.length === 1 ? ' is' : 's are'} not in Drive yet and will be lost.` : '\n\nEverything is safely in Drive.');
+    }
+    if ((await ask({ title: Sync.on() ? 'Remove everything from this browser?' : 'Delete all data?', body, ok: Sync.on() ? 'Remove everything' : 'Delete everything', danger: true })) !== 'ok') return;
     for (const s of ['workshops', 'comparisons', 'settings']) await DB.clear(s);
     KEYS = {}; Vault.key = null;
     location.reload();
@@ -4166,6 +4549,7 @@ async function init() {
     : 'Browser storage is unavailable (private mode?). Work will be lost when this tab closes — use Back up everything.', 'warn', { ms: 14000 });
   try { const saved = await DB.get('settings', 'app'); if (saved && saved.value) mergeSettings(saved.value); } catch (e) { /* defaults */ }
   try { state.vaultExists = !!(await DB.get('settings', 'vault')); } catch (e) { /* none */ }
+  await Sync.load();
   try { state.workshops = (await DB.all('workshops')) || []; state.comparisons = (await DB.all('comparisons')) || []; } catch (e) { toast('Could not read saved workshops: ' + e.message, 'bad'); }
   state.workshops.forEach((w) => { if (w.status === 'running') w.status = 'partial'; });
   Object.values(S.providers).forEach((p) => { p.status = ''; });
@@ -4179,9 +4563,11 @@ async function init() {
   step('Star field', initSky);
   step('Skyline', drawCityLights);
   step('Lists', () => { refreshLists(); refreshAllStatus(); updateInputUI('main'); updateInputUI('cmp'); });
+  step('Drive sync', () => Sync.bind());
   const h = readHash();
   step('Navigation', () => showView(VIEWS.includes(h) ? h : 'analyze', { keepScroll: true }));
   setInterval(() => { updateModelChip(); if (state.view === 'settings') renderRank(); }, 10000);
+  if (Sync.on()) Sync.reconcile('open');
 }
 init().catch((e) => { console.error(e); toast('Startup error: ' + e.message, 'bad', { ms: 0 }); });
 
