@@ -623,9 +623,16 @@
         <select id="runModel"></select>
       </div>
       <div class="field">
-        <label for="runDepth">Detail level</label>
+        <label for="runStyle">Report style</label>
+        <select id="runStyle">
+          <option value="key" selected>Key points — short bullets and key tables</option>
+          <option value="full">Full detail — every step, prompt and quote</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="runDepth">Reading depth</label>
         <select id="runDepth">
-          <option value="max">Maximum detail — smallest segments, most requests</option>
+          <option value="max">Maximum — smallest segments, most requests</option>
           <option value="thorough" selected>Thorough — recommended</option>
           <option value="fast">Faster — fewer, larger segments</option>
         </select>
@@ -861,7 +868,8 @@
     <ol>
       <li>The transcript is split into segments sized for the chosen model, never dropping text. Caption files are merged into timestamped paragraphs.</li>
       <li>Each segment is read for evidence: intro moves, lessons, prompts, tools, marketing, selling and course details, each with a timestamp.</li>
-      <li>The seven report sections are written from that evidence only, then a structured fact sheet is saved for comparisons.</li>
+      <li>The seven report sections are written from that evidence only — as key points by default, or in full detail if you pick that style — then a structured fact sheet is saved for comparisons.</li>
+      <li>A finished report can be rewritten in the other style from its saved evidence notes, without reading the transcript again.</li>
       <li>If a model fails or hits a limit, the next free model takes over and you are told. If every model fails, you get an error and the progress so far is saved so you can resume.</li>
     </ol>
 
@@ -911,7 +919,7 @@ const LIBS = {
 };
 const CATS = ['INTRO', 'TEACHING', 'TOOLS', 'MARKETING', 'SELLING', 'COURSE', 'STRUCTURE', 'QUOTES'];
 const DEPTH = {
-  max: { chunk: 6000, extractOut: 4096, label: 'Maximum detail' },
+  max: { chunk: 6000, extractOut: 4096, label: 'Maximum' },
   thorough: { chunk: 12000, extractOut: 6000, label: 'Thorough' },
   fast: { chunk: 28000, extractOut: 8000, label: 'Faster' }
 };
@@ -1434,7 +1442,7 @@ async function unlockBuiltin(pw) {
   saveSettings();
 }
 const S = {
-  mode: 'auto', manualModel: '', manualFallback: true, depth: 'thorough', myContext: '', timeoutSec: 240, maxWaitSec: 70,
+  mode: 'auto', manualModel: '', manualFallback: true, depth: 'thorough', style: 'key', myContext: '', timeoutSec: 240, maxWaitSec: 70,
   keystore: 'memory', disabled: [], consent: {}, music: { vol: 45 }, lastCompetitor: '',
   providers: {}
 };
@@ -1880,6 +1888,63 @@ const SECTIONS = [
 ### What to watch next time — specific things to check in their next workshop (prices, bonuses, tools, claims, structure).` }
 ];
 const SECTION_IDS = SECTIONS.map((s) => s.id);
+
+/* Key-points style: the segment notes above stay exhaustive (they feed comparisons, the fact sheet and chat);
+   only the report sections are written short. Records made before this style existed have no rec.style and count as full. */
+const P_SECTION_SYS_KEY = `You are a senior competitive-intelligence analyst writing one section of a short briefing on a competitor's online workshop (typically a free AI-tools webinar that ends with a paid-program pitch). The reader runs a competing workshop and wants only the points that would change their own content, offer or pitch — not a retelling of the session.
+
+Rules:
+1. Use only facts in the material. Never invent tools, prices, names, numbers, quotes or claims.
+2. Key points only. Each bullet is one line of at most 25 words. Merge related small items; drop small talk, repetition, routine instructions and step-by-step detail. Never repeat a point in two subsections.
+3. The item counts in the request are maximums, not targets. If a subsection has nothing worth acting on, leave it out instead of padding it. Write "Not mentioned" only where the request asks for it.
+4. End each bullet or table row with its timestamp in square brackets, e.g. [00:41:05], when the material gives one.
+5. Quote the speaker only when the exact words are the point, in under 12 words. Never paste full prompts or long quotes.
+6. Format as GitHub-flavoured Markdown: the ### subheadings the request names, short bullets, and only the tables it asks for. Start directly with content — no section title, no preamble, no closing remarks.`;
+
+const KEY_ASKS = {
+  intro: { maxOut: 3000, ask: `Write the OPENING section as key points.
+### Hook & promise — up to 3 bullets: how they opened and what they promised attendees.
+### Credibility — up to 3 bullets: the strongest trust-building claims (credentials, numbers, brands).
+### Engagement asks — up to 4 bullets: chat asks, polls, giveaways, "stay till the end" rules.
+### Running order — a table of the major blocks only (at most 8 rows): Time | Block.
+### Verdict — 2 bullets: what worked and what was weak in the opening.` },
+  teaching: { maxOut: 3500, ask: `Write the CONTENT DELIVERY section as key points.
+### What they taught — a table with one row per major topic or demo, in running order (at most 10 rows; merge minor ones): Time | Topic | Key takeaway.
+### Best prompts — up to 3 of the most reusable prompts shared, each shortened to its core instruction on one line. Leave this subsection out if no prompts were shared.
+### Teaching quality — up to 3 bullets: depth versus breadth, hands-on versus talk, and the biggest gap a learner would notice.` },
+  tools: { maxOut: 3500, ask: `Write the AI TOOLS section as key points.
+### Tools demonstrated — a table with one row per tool demonstrated live, in order of first use: Tool | Used for (a few words) | Time. Include every live-demo tool, but keep each row short.
+### Mentioned only — one line listing the tools that were only named, comma-separated. Leave this out if there are none.
+### Tool strategy — up to 3 bullets: which tools anchor the workshop and which are used to sell the paid program.` },
+  marketing: { maxOut: 3000, ask: `Write the PERSUASION section as key points.
+### Top techniques — up to 5 bullets, strongest first: technique — how they used it.
+### Stories & social proof — up to 3 bullets: the testimonials or success stories that carried the most weight.
+### Urgency & scarcity — up to 3 bullets: deadlines, seat limits, timers, price-rise claims.
+### Claims to verify — up to 3 bullets: bold income, job or result claims.` },
+  selling: { maxOut: 3500, ask: `Write the SALES PITCH section as key points.
+### Pitch timing — one line: when the pitch started, how they moved into it, and how long it ran.
+### Offer stack — a table: Element | Details | Time. Rows: program name, full price, offer price, discount deadline, EMI or payment options, bonuses (with stated value), guarantee or refund, seat limit, link or coupon. Write "Not mentioned" for missing elements; put all bonuses in one row.
+### Objections handled — a table of up to 4 rows: Objection | Their answer (one line) | Time. Leave this out if none were handled.
+### Closing moves — up to 3 bullets: the calls to action and closing lines that pushed hardest.` },
+  course: { maxOut: 3000, ask: `Write the PROGRAM DETAILS section as key points.
+### Program at a glance — up to 4 bullets: name, format (live or recorded), duration and start date, who it is for.
+### What's included — up to 6 bullets, most valuable first (modules, projects, certificate, community, mentorship, tool access, job support). Bonuses are covered in the Sales Pitch section; skip them here.
+### Not stated — up to 4 bullets: the important buyer questions the transcript leaves unanswered.` },
+  summary: { maxOut: 3000, ask: `Write the EXECUTIVE SUMMARY of this competitor-workshop briefing, using only the REPORT SECTIONS provided.
+### Key takeaways — 5 bullets, most important first.
+### Strengths — up to 3 bullets, each with its evidence.
+### Weaknesses — up to 3 bullets, each with its evidence.
+### Opportunities for my workshop — up to 4 bullets, each phrased "Do X — because they did / didn't do Y [time]".
+### What to watch next time — up to 3 bullets.` }
+};
+const STYLES = { key: 'Key points', full: 'Full detail' };
+const recStyle = (rec) => (rec && rec.style === 'key' ? 'key' : 'full');
+function sectionSpec(rec, sec) {
+  const k = recStyle(rec) === 'key' && KEY_ASKS[sec.id];
+  return k ? { sys: P_SECTION_SYS_KEY, ask: k.ask, maxOut: k.maxOut } : { sys: P_SECTION_SYS, ask: sec.ask, maxOut: sec.maxOut };
+}
+/* On-screen and Markdown/text order: Executive Summary first. Generation order stays SECTIONS (summary is written last). */
+const SECTIONS_VIEW = [...SECTIONS.filter((s) => s.id === 'summary'), ...SECTIONS.filter((s) => s.id !== 'summary')];
 const secTitle = (id) => (SECTIONS.find((s) => s.id === id) || {}).title || id;
 
 const FACTS_SHAPE = `{
@@ -2016,21 +2081,23 @@ async function condense(text, target, prefKey, ctl, title) {
 function sectionMessages(rec, sec, input) {
   const my = sec.id === 'summary' && S.myContext.trim() ? `\n\nABOUT MY OWN WORKSHOP (tailor the opportunities to this):\n${S.myContext.trim()}` : '';
   const label = sec.fromSections ? 'REPORT SECTIONS' : 'NOTES (extracted from the transcript, segment by segment)';
-  return [{ role: 'system', content: P_SECTION_SYS }, { role: 'user', content: `${recMeta(rec)}\n\n${sec.ask}${my}\n\n${label}:\n<<<\n${input}\n>>>` }];
+  const sp = sectionSpec(rec, sec);
+  return [{ role: 'system', content: sp.sys }, { role: 'user', content: `${recMeta(rec)}\n\n${sp.ask}${my}\n\n${label}:\n<<<\n${input}\n>>>` }];
 }
 async function generateSection(rec, sec, prefKey, ctl) {
   let input = sec.fromSections ? sectionsDigest(rec) : notesFor(rec.chunks || [], sec.cats);
   if (!input.trim()) input = '(No notes were found for this section in any segment.)';
+  const sp = sectionSpec(rec, sec);
   for (let round = 0; ; round++) {
     try {
       return await callLLM({
-        label: `Writing “${sec.title}”`, prefKey, signal: ctl.signal, maxOut: sec.maxOut, temperature: 0.2, allowContinue: true,
+        label: `Writing “${sec.title}”${recStyle(rec) === 'key' ? ' (key points)' : ''}`, prefKey, signal: ctl.signal, maxOut: sp.maxOut, temperature: 0.2, allowContinue: true,
         build: (budget) => { const msgs = sectionMessages(rec, sec, input); return estTokens(msgs.map((x) => x.content).join('\n')) <= budget ? msgs : null; },
         onStatus: ctl.status, onSwitch: ctl.onSwitch
       });
     } catch (e) {
       if (e.type !== 'no_fit' || !e.fitBudget || round >= 2) throw e;
-      const target = Math.max(1500, Math.floor(e.fitBudget * 0.7) - estTokens(P_SECTION_SYS + sec.ask) - 600);
+      const target = Math.max(1500, Math.floor(e.fitBudget * 0.7) - estTokens(sp.sys + sp.ask) - 600);
       ctl.log(`“${sec.title}”: the notes are larger than the remaining models accept — condensing to ~${fmtNum(target)} tokens first (details are merged, not dropped).`);
       input = await condense(input, target, prefKey, ctl, sec.title);
     }
@@ -2433,13 +2500,13 @@ function modelsLine(models) { return Object.entries(models || {}).map(([k, v]) =
 function reportMarkdown(rec) {
   const out = [`# ${rec.title || 'Workshop report'}`, '', metaLine(rec), '', `Generated by: ${modelsLine(rec.models)}`, ''];
   if (rec.status !== 'complete') out.push('> This report is incomplete — some segments or sections were not generated.', '');
-  for (const s of SECTIONS) { const sec = rec.report && rec.report.sections[s.id]; out.push(`## ${s.title}`, '', (sec && sec.md) || '_Not generated._', ''); }
+  for (const s of SECTIONS_VIEW) { const sec = rec.report && rec.report.sections[s.id]; out.push(`## ${s.title}`, '', (sec && sec.md) || '_Not generated._', ''); }
   out.push('---', `WorkshopSpy AI · exported ${new Date().toISOString()}`);
   return out.join('\n');
 }
 function reportText(rec) {
   const out = [String(rec.title || 'Workshop report').toUpperCase(), metaLine(rec), `Generated by: ${modelsLine(rec.models)}`, ''];
-  for (const s of SECTIONS) {
+  for (const s of SECTIONS_VIEW) {
     const sec = rec.report && rec.report.sections[s.id];
     out.push('='.repeat(64), s.title.toUpperCase(), '='.repeat(64), '');
     out.push(mdPlain((sec && sec.md) || 'Not generated.').replace(/^#{1,6}\s*(.+)$/gm, (m, t) => `\n${t}\n${'-'.repeat(Math.min(60, t.length))}`).replace(/^\s*```.*$/gm, ''), '');
@@ -2999,12 +3066,12 @@ function setRunning(on) {
   $('#cmpCancel').hidden = !(on && (state.runningKind === 'cmp' || state.runningKind === 'compare'));
   $('#compareBtn').disabled = on;
   $('#analyzeBtn').disabled = on || !collectInput('main').text.trim();
-  $$('[data-action="resume"],[data-action="reanalyze"],[data-action="regen-sec"]').forEach((b) => { b.disabled = on; });
+  $$('[data-action="resume"],[data-action="reanalyze"],[data-action="regen-sec"],[data-action="restyle"]').forEach((b) => { b.disabled = on; });
 }
 async function newRecord(inp, meta) {
   return {
     id: uid(), title: meta.title || `Workshop — ${fmtDate(meta.date || todayISO())}`, competitor: meta.competitor || '', date: meta.date || todayISO(),
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'running', depth: meta.depth || S.depth, prefKey: meta.prefKey || '',
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'running', depth: meta.depth || S.depth, style: meta.style || S.style || 'key', prefKey: meta.prefKey || '',
     transcript: inp.text, hash: await sha256(inp.text), duration: inp.duration || 0,
     source: { files: inp.files, pasted: inp.pasted, words: inp.words, chars: inp.text.length, hasTs: inp.hasTs },
     chunks: [], report: { sections: {} }, facts: null, factsError: '', models: {}, chat: [], log: [], lastError: ''
@@ -3051,7 +3118,7 @@ async function startAnalysis() {
   const pref = $('#runModel').value === 'auto' ? '' : $('#runModel').value;
   try { getChain(pref); } catch (e) { return toast(e.message, 'bad', { actions: [{ label: 'Open AI settings', run: () => showView('settings') }] }); }
   const comp = $('#metaCompetitor').value.trim();
-  const rec = await newRecord(inp, { title: $('#metaTitle').value.trim(), competitor: comp, date: $('#metaDate').value, depth: $('#runDepth').value, prefKey: pref });
+  const rec = await newRecord(inp, { title: $('#metaTitle').value.trim(), competitor: comp, date: $('#metaDate').value, depth: $('#runDepth').value, style: $('#runStyle').value, prefKey: pref });
   if (comp) { S.lastCompetitor = comp; saveSettings(); }
   const ok = await runAnalysis(rec, 'main');
   if (ok) {
@@ -3069,6 +3136,21 @@ async function resumeRecord(id, reset) {
     rec.chunks = []; rec.report = { sections: {} }; rec.facts = null; rec.factsError = ''; rec.models = {};
   }
   try { getChain(rec.prefKey || ''); } catch (e) { rec.prefKey = ''; try { getChain(''); } catch (e2) { return toast(e2.message, 'bad', { actions: [{ label: 'Open AI settings', run: () => showView('settings') }] }); } }
+  showView('analyze');
+  $('#progressBox').scrollIntoView({ block: 'center' });
+  const ok = await runAnalysis(rec, 'main');
+  if (ok) openReport(rec.id);
+}
+
+async function restyleRecord(id) {
+  const rec = findWs(id);
+  if (!rec) return;
+  if (state.running) return toast('Wait for the current run to finish.', 'warn');
+  if (!(rec.chunks || []).length || !rec.chunks.every((c) => c.notes)) return toast('Some segments are not read yet — press Resume first.', 'warn');
+  const to = recStyle(rec) === 'key' ? 'full' : 'key';
+  if ((await ask({ title: to === 'key' ? 'Rewrite as key points?' : 'Rewrite in full detail?', body: `All ${SECTIONS.length} sections are rewritten from the saved evidence notes in about ${SECTIONS.length} requests — the transcript is not read again. The fact sheet and saved comparisons stay as they are. If the run stops midway, Resume finishes it.`, ok: 'Rewrite' })) !== 'ok') return;
+  try { getChain(rec.prefKey || ''); } catch (e) { rec.prefKey = ''; try { getChain(''); } catch (e2) { return toast(e2.message, 'bad', { actions: [{ label: 'Open AI settings', run: () => showView('settings') }] }); } }
+  rec.style = to; rec.report = { sections: {} };
   showView('analyze');
   $('#progressBox').scrollIntoView({ block: 'center' });
   const ok = await runAnalysis(rec, 'main');
@@ -3123,19 +3205,20 @@ function renderReport() {
           </div></details>
         <button type="button" class="btn btn-sm" data-action="chat-this">${ICON('chat')}Ask about it</button>
         <button type="button" class="btn btn-sm" data-action="compare-this">${ICON('compare')}Compare</button>
+        ${!partial && notesReady ? `<button type="button" class="btn btn-sm${recStyle(rec) === 'key' ? '' : ' btn-primary'}" data-action="restyle" data-id="${rec.id}" ${state.running ? 'disabled' : ''}>${ICON('spark')}${recStyle(rec) === 'key' ? 'Rewrite in full detail' : 'Rewrite as key points'}</button>` : ''}
         ${partial ? `<button type="button" class="btn btn-sm btn-primary" data-action="resume" data-id="${rec.id}" ${state.running ? 'disabled' : ''}>Resume analysis</button>`
                   : `<button type="button" class="btn btn-sm btn-ghost" data-action="reanalyze" data-id="${rec.id}" ${state.running ? 'disabled' : ''}>${ICON('refresh')}Re-analyze</button>`}
       </div>
     </div>
     <div class="gen-by"><span>Generated by</span>${modelChips(rec.models)}</div>
-    <div class="chips">${statusChip(rec)}<span class="chip">Segments read <strong>${segDone}/${segAll}</strong></span><span class="chip">Sections <strong>${done}/${SECTIONS.length}</strong></span><span class="chip">${rec.source && rec.source.hasTs ? 'Timestamps found' : 'No timestamps — quotes used as references'}</span></div>
+    <div class="chips">${statusChip(rec)}<span class="chip">Style <strong>${STYLES[recStyle(rec)]}</strong></span><span class="chip">Segments read <strong>${segDone}/${segAll}</strong></span><span class="chip">Sections <strong>${done}/${SECTIONS.length}</strong></span><span class="chip">${rec.source && rec.source.hasTs ? 'Timestamps found' : 'No timestamps — quotes used as references'}</span></div>
     ${partial ? `<div class="callout callout-warn"><strong>This report is incomplete.</strong> ${segDone} of ${segAll || '?'} segments read and ${done} of ${SECTIONS.length} sections written.${rec.lastError ? ' Last error: ' + esc(rec.lastError.split('\n')[0]) : ''} Resume continues where it stopped; finished work is kept.</div>` : ''}
     ${!partial && !rec.facts ? `<div class="callout callout-info">The structured fact sheet could not be built${rec.factsError ? ` (${esc(rec.factsError.split('\n')[0].slice(0, 140))})` : ''}. Comparisons will use the report text instead. <button type="button" class="btn btn-sm" data-action="build-facts">Try again</button></div>` : ''}
   </div>
   <div class="report-grid">
-    <nav class="toc" aria-label="Report sections"><span class="toc-label">Sections</span>${SECTIONS.map((s) => `<a href="#sec-${s.id}" data-action="toc" data-sec="${s.id}">${s.title}</a>`).join('')}</nav>
+    <nav class="toc" aria-label="Report sections"><span class="toc-label">Sections</span>${SECTIONS_VIEW.map((s) => `<a href="#sec-${s.id}" data-action="toc" data-sec="${s.id}">${s.title}</a>`).join('')}</nav>
     <div class="report-body">
-      ${SECTIONS.map((s) => sectionCard(rec, s, s.id === 'summary' ? done >= SECTIONS.length - 1 : notesReady)).join('')}
+      ${SECTIONS_VIEW.map((s) => sectionCard(rec, s, s.id === 'summary' ? done >= SECTIONS.length - 1 : notesReady)).join('')}
       <details class="disclosure" data-lazy="notes"><summary>Evidence notes by segment</summary><div class="disc-body"></div></details>
       <details class="disclosure" data-lazy="facts"><summary>Fact sheet used for comparisons</summary><div class="disc-body"></div></details>
       <details class="disclosure" data-lazy="transcript"><summary>Full transcript</summary><div class="disc-body"></div></details>
@@ -3226,7 +3309,7 @@ async function startCompare() {
   if (bId === '__new__') {
     const inp = collectInput('cmp');
     if (!inp.text.trim()) return toast('Add the newer transcript, or pick a saved workshop for B.', 'warn');
-    const rec = await newRecord(inp, { title: $('#cmpTitle').value.trim(), competitor: $('#cmpCompetitor').value.trim() || A.competitor, date: $('#cmpDate').value || todayISO(), depth: S.depth });
+    const rec = await newRecord(inp, { title: $('#cmpTitle').value.trim(), competitor: $('#cmpCompetitor').value.trim() || A.competitor, date: $('#cmpDate').value || todayISO(), depth: S.depth, style: S.style });
     const ok = await runAnalysis(rec, 'cmp');
     if (!ok) { $('#cmpStatus').textContent = 'The new transcript could not be fully analyzed. Resume it from the library, then compare.'; return; }
     state.cmp.files = []; $('#cmpPaste').value = ''; $('#cmpTitle').value = ''; updateInputUI('cmp');
@@ -3432,7 +3515,7 @@ async function restoreBackup(file) {
 /* ---------- settings ---------- */
 function mergeSettings(v) {
   if (!v || typeof v !== 'object') return;
-  for (const k of ['mode', 'manualModel', 'manualFallback', 'depth', 'myContext', 'timeoutSec', 'maxWaitSec', 'keystore', 'lastCompetitor']) if (v[k] !== undefined) S[k] = v[k];
+  for (const k of ['mode', 'manualModel', 'manualFallback', 'depth', 'style', 'myContext', 'timeoutSec', 'maxWaitSec', 'keystore', 'lastCompetitor']) if (v[k] !== undefined) S[k] = v[k];
   if (Array.isArray(v.disabled)) S.disabled = v.disabled.filter((x) => typeof x === 'string');
   if (v.consent && typeof v.consent === 'object') S.consent = Object.assign({}, v.consent);
   if (v.music && typeof v.music.vol === 'number') S.music.vol = v.music.vol;
@@ -3445,6 +3528,7 @@ function applySettingsToUI() {
   $('#myContext').value = S.myContext || '';
   $('#timeoutSec').value = S.timeoutSec; $('#maxWaitSec').value = S.maxWaitSec;
   $('#runDepth').value = S.depth in DEPTH ? S.depth : 'thorough';
+  $('#runStyle').value = S.style in STYLES ? S.style : 'key';
   $('#musicVol').value = S.music.vol;
   $$('input[name="keystore"]').forEach((r) => { r.checked = r.value === (state.vaultExists || Vault.key ? 'vault' : S.keystore === 'vault' ? 'vault' : 'memory'); });
 }
@@ -3883,6 +3967,7 @@ const ACTIONS = {
   'compare-this': () => { const rec = state.report, prev = previousOf(rec, sortedWorkshops()); showView('compare'); renderCompareSelectors({ b: rec.id, a: prev ? prev.id : '' }); },
   'resume': (el) => resumeRecord(el.dataset.id, false),
   'reanalyze': (el) => resumeRecord(el.dataset.id, true),
+  'restyle': (el) => restyleRecord(el.dataset.id),
   'toc': (el, e) => { e.preventDefault(); const t = $('#sec-' + el.dataset.sec); if (t) { t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); $$('.toc a').forEach((a) => a.classList.toggle('current', a === el)); } },
   'cmp-filter': (el) => { state.cmpFilter = el.dataset.f; renderCmpTable(); },
   'cmp-copy': async () => toast((await copyText(state.cmpCurrent.summary)) ? 'Summary copied.' : 'Copy failed.', 'ok'),
@@ -3948,6 +4033,7 @@ function bindEvents() {
   $('#analyzeBtn').addEventListener('click', startAnalysis);
   $('#cancelBtn').addEventListener('click', () => { if (state.running) state.running.abort(); });
   $('#runDepth').addEventListener('change', (e) => { S.depth = e.target.value; saveSettings(); updatePlan(); });
+  $('#runStyle').addEventListener('change', (e) => { S.style = e.target.value; saveSettings(); });
   $('#runModel').addEventListener('change', async (e) => {
     const m = findModel(e.target.value);
     if (m && modelStatus(m).needsConsent) await consentFor(m, e.target);
